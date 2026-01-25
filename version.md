@@ -1,5 +1,13 @@
 # Versionen InsertWizard
 
+## Version 0.2.1 - 2026-01-25
+
+-JSON in Englisch
+
+## Version 0.2.0 - 2026-01-25
+
+- Vorlagen JSON
+
 ## Version 0.1.1 - 2026-01-25
 
 - Bohrung mit Fase versehen (optional über AUswahlfeld)

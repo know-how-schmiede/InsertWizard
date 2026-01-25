@@ -1,5 +1,6 @@
 import adsk.core
 import adsk.fusion
+import json
 import os
 from ...lib import fusionAddInUtils as futil
 from ... import config
@@ -29,6 +30,57 @@ ICON_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resource
 # Local list of event handlers used to maintain a reference so
 # they are not released and garbage collected.
 local_handlers = []
+
+PRESETS = []
+PRESET_BY_NAME = {}
+
+PRESET_FILE = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'presets.json')
+)
+
+
+def _preset_display_name(preset: dict) -> str:
+    manufacturer = str(preset.get('Manufacturer', preset.get('Hersteller', 'Preset'))).strip()
+    thread = str(preset.get('Thread', preset.get('Gewinde', ''))).strip()
+    if thread:
+        return f'{manufacturer} {thread}'
+    return manufacturer
+
+
+def _load_presets() -> list:
+    try:
+        with open(PRESET_FILE, 'r', encoding='utf-8') as handle:
+            data = json.load(handle)
+        presets = data.get('presets', data) if isinstance(data, dict) else data
+        if not isinstance(presets, list):
+            raise ValueError('Ungültiges Preset-Format')
+    except Exception as exc:
+        futil.log(f'Preset-Datei konnte nicht geladen werden: {exc}', force_console=True)
+        presets = []
+
+    if not presets:
+        presets = [
+            {
+                'Hersteller': 'Default',
+                'Gewinde': 'M3',
+                'durchmesser': 10.0,
+                'Länge': 5.0
+            }
+        ]
+
+    return presets
+
+
+def _apply_preset(preset: dict, diameter_input: adsk.core.ValueCommandInput, depth_input: adsk.core.ValueCommandInput):
+    if not preset:
+        return
+    diameter = preset.get('Diameter', preset.get('durchmesser', None))
+    depth = preset.get('Length', preset.get('Länge', None))
+
+    if diameter is not None:
+        diameter_input.expression = f'{diameter} mm'
+    if depth is not None:
+        depth_input.expression = f'{depth} mm'
 
 
 # Executed when add-in is run.
@@ -92,13 +144,34 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
         # Older API versions may not expose this property.
         pass
 
+    # Preset selection.
+    global PRESETS, PRESET_BY_NAME
+    PRESETS = _load_presets()
+    PRESET_BY_NAME = {}
+    preset_input = inputs.addDropDownCommandInput(
+        'preset',
+        'Preset',
+        adsk.core.DropDownStyles.TextListDropDownStyle
+    )
+    for index, preset in enumerate(PRESETS):
+        name = _preset_display_name(preset)
+        if name in PRESET_BY_NAME:
+            name = f'{name} ({index + 1})'
+        PRESET_BY_NAME[name] = preset
+        preset_input.listItems.add(name, index == 0, '')
+
     # Diameter input in mm with a default of 10 mm.
     default_diameter = adsk.core.ValueInput.createByString('10 mm')
     inputs.addValueInput('diameter', 'Durchmesser 1', 'mm', default_diameter)
 
     # Depth input in mm.
     default_depth = adsk.core.ValueInput.createByString('5 mm')
-    inputs.addValueInput('depth', 'Tiefe', 'mm', default_depth)
+    inputs.addValueInput('depth', 'Tiefe 1', 'mm', default_depth)
+
+    diameter_input: adsk.core.ValueCommandInput = inputs.itemById('diameter')
+    depth_input: adsk.core.ValueCommandInput = inputs.itemById('depth')
+    if preset_input.listItems.count > 0:
+        _apply_preset(PRESET_BY_NAME[preset_input.listItems.item(0).name], diameter_input, depth_input)
 
     # Chamfer on/off toggle.
     inputs.addBoolValueInput('chamfer_enabled', 'Fase erstellen', True, '', True)
@@ -116,6 +189,7 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
 
     # Connect to the events that are needed by this command.
     futil.add_handler(args.command.execute, command_execute, local_handlers=local_handlers)
+    futil.add_handler(args.command.inputChanged, command_input_changed, local_handlers=local_handlers)
     futil.add_handler(args.command.validateInputs, command_validate_input, local_handlers=local_handlers)
     futil.add_handler(args.command.destroy, command_destroy, local_handlers=local_handlers)
 
@@ -366,6 +440,22 @@ def command_execute(args: adsk.core.CommandEventArgs):
                     futil.log('Fase für diese Kante fehlgeschlagen.', force_console=True)
             else:
                 futil.log('Keine passende Fasen-Kante gefunden.', force_console=True)
+
+
+# This event handler is called when the user changes anything in the command dialog
+# allowing you to modify values of other inputs based on that change.
+def command_input_changed(args: adsk.core.InputChangedEventArgs):
+    changed_input = args.input
+    if not changed_input:
+        return
+
+    if changed_input.id == 'preset':
+        preset = PRESET_BY_NAME.get(changed_input.selectedItem.name)
+        if not preset:
+            return
+        diameter_input: adsk.core.ValueCommandInput = args.inputs.itemById('diameter')
+        depth_input: adsk.core.ValueCommandInput = args.inputs.itemById('depth')
+        _apply_preset(preset, diameter_input, depth_input)
 
 
 # This event handler is called when the user interacts with any of the inputs in the dialog

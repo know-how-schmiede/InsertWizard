@@ -1,0 +1,82 @@
+{
+  "presets": [
+    {
+      "Manufacturer": "Default",
+      "Thread": "M3",
+      "Diameter": 4,
+      "Length": 5.7
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M2",
+      "Diameter": 3.2,
+      "Length": 5.0
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M2.5",
+      "Diameter": 4.0,
+      "Length": 5.7
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M3 short",
+      "Diameter": 4.0,
+      "Length": 4.0
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M3",
+      "Diameter": 4.0,
+      "Length": 5.7
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M4 short",
+      "Diameter": 5.6,
+      "Length": 4.0
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M4",
+      "Diameter": 5.6,
+      "Length": 8.4
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M5 short",
+      "Diameter": 6.4,
+      "Length": 5.8
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M5",
+      "Diameter": 6.4,
+      "Length": 9.5
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M6 short",
+      "Diameter": 8.0,
+      "Length": 6.8
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M6",
+      "Diameter": 8.0,
+      "Length": 12.7
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M8",
+      "Diameter": 9.6,
+      "Length": 12.7
+    },
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M10",
+      "Diameter": 12.0,
+      "Length": 12.7
+    }
+  ]
+}
