@@ -1,6 +1,11 @@
 # Versionen InsertWizard
 
-## Version 0.0.1 - 2026-01-25
+## Version 0.1.1 - 2026-01-25
+
+- Bohrung mit Fase versehen (optional über AUswahlfeld)
+- Checkbox für Fase
+
+## Version 0.1.1 - 2026-01-25
 
 - erste Lauffähige Version
 - Version in Titelzeile

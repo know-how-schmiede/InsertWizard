@@ -100,6 +100,20 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
     default_depth = adsk.core.ValueInput.createByString('5 mm')
     inputs.addValueInput('depth', 'Tiefe', 'mm', default_depth)
 
+    # Chamfer on/off toggle.
+    inputs.addBoolValueInput('chamfer_enabled', 'Fase erstellen', True, '', True)
+
+    # Chamfer size selection.
+    chamfer_input = inputs.addDropDownCommandInput(
+        'chamfer',
+        'Fase',
+        adsk.core.DropDownStyles.TextListDropDownStyle
+    )
+    chamfer_items = chamfer_input.listItems
+    chamfer_items.add('0.2 mm', True, '')
+    chamfer_items.add('0.4 mm', False, '')
+    chamfer_items.add('0.6 mm', False, '')
+
     # Connect to the events that are needed by this command.
     futil.add_handler(args.command.execute, command_execute, local_handlers=local_handlers)
     futil.add_handler(args.command.validateInputs, command_validate_input, local_handlers=local_handlers)
@@ -116,6 +130,8 @@ def command_execute(args: adsk.core.CommandEventArgs):
     points_input: adsk.core.SelectionCommandInput = inputs.itemById('points')
     diameter_input: adsk.core.ValueCommandInput = inputs.itemById('diameter')
     depth_input: adsk.core.ValueCommandInput = inputs.itemById('depth')
+    chamfer_enabled: adsk.core.BoolValueCommandInput = inputs.itemById('chamfer_enabled')
+    chamfer_input: adsk.core.DropDownCommandInput = inputs.itemById('chamfer')
 
     if points_input.selectionCount < 1:
         ui.messageBox('Bitte mindestens einen Skizzenpunkt auswählen.')
@@ -128,6 +144,12 @@ def command_execute(args: adsk.core.CommandEventArgs):
 
     radius = diameter_input.value / 2.0
     depth_value = abs(depth_input.value)
+    chamfer_value = None
+    if chamfer_enabled.value:
+        chamfer_value = adsk.core.ValueInput.createByString(chamfer_input.selectedItem.name)
+        futil.log(f'Fase: {chamfer_input.selectedItem.name}', force_console=True)
+    else:
+        futil.log('Fase: deaktiviert', force_console=True)
 
     selection_count = points_input.selectionCount
     futil.log(f'Ausgewählte Punkte: {selection_count}', force_console=True)
@@ -153,10 +175,27 @@ def command_execute(args: adsk.core.CommandEventArgs):
         elif sketch != base_sketch:
             mismatched_sketch = True
             break
-        center = entity.geometry
-        centers.append((sketch, adsk.core.Point3D.create(center.x, center.y, center.z)))
+        sketch_center = entity.geometry
+        model_center = None
+        if hasattr(entity, 'worldGeometry') and entity.worldGeometry:
+            model_center = entity.worldGeometry
+        elif hasattr(sketch, 'sketchToModelSpace'):
+            try:
+                model_center = sketch.sketchToModelSpace(sketch_center)
+            except:
+                model_center = None
+        if not model_center:
+            model_center = sketch_center
+
+        centers.append(
+            (
+                sketch,
+                adsk.core.Point3D.create(sketch_center.x, sketch_center.y, sketch_center.z),
+                adsk.core.Point3D.create(model_center.x, model_center.y, model_center.z)
+            )
+        )
         futil.log(
-            f'Punkt {i + 1}: X={center.x:.3f} Y={center.y:.3f} Z={center.z:.3f}',
+            f'Punkt {i + 1}: X={sketch_center.x:.3f} Y={sketch_center.y:.3f} Z={sketch_center.z:.3f}',
             force_console=True
         )
 
@@ -169,10 +208,19 @@ def command_execute(args: adsk.core.CommandEventArgs):
 
     base_sketch = centers[0][0]
     plane_entity = None
+    plane_origin = None
+    plane_normal = None
     if hasattr(base_sketch, 'referencePlane') and base_sketch.referencePlane:
         plane_entity = base_sketch.referencePlane
     elif hasattr(base_sketch, 'planarEntity') and base_sketch.planarEntity:
         plane_entity = base_sketch.planarEntity
+
+    plane = None
+    if plane_entity and hasattr(plane_entity, 'geometry'):
+        plane = adsk.core.Plane.cast(plane_entity.geometry)
+    if plane:
+        plane_origin = plane.origin
+        plane_normal = plane.normal
 
     target_sketch = base_sketch
 
@@ -190,8 +238,67 @@ def command_execute(args: adsk.core.CommandEventArgs):
         futil.log('Kein Zielkörper im Component gefunden.', force_console=True)
         return
 
-    for _, center in centers:
-        circle = target_sketch.sketchCurves.sketchCircles.addByCenterRadius(center, radius)
+    bodies = []
+    for i in range(target_bodies.count):
+        bodies.append(target_bodies.item(i))
+
+    def point_plane_distance(point: adsk.core.Point3D) -> float:
+        if not plane_origin or not plane_normal:
+            return 0.0
+        vec = plane_origin.vectorTo(point)
+        return abs(vec.dotProduct(plane_normal))
+
+    def find_circle_edge(center_point: adsk.core.Point3D, ext_feature: adsk.fusion.ExtrudeFeature):
+        tol = 0.02  # cm (0.2 mm)
+        best_edge = None
+        best_plane_dist = None
+
+        if ext_feature:
+            for face in ext_feature.sideFaces:
+                cyl = adsk.core.Cylinder.cast(face.geometry)
+                if not cyl:
+                    continue
+                if abs(cyl.radius - radius) > tol:
+                    continue
+                for edge in face.edges:
+                    circle = adsk.core.Circle3D.cast(edge.geometry)
+                    if not circle:
+                        arc = adsk.core.Arc3D.cast(edge.geometry)
+                        if arc:
+                            circle = adsk.core.Circle3D.cast(arc.circle)
+                    if not circle:
+                        continue
+                    if abs(circle.radius - radius) > tol:
+                        continue
+                    if circle.center.distanceTo(center_point) > tol:
+                        continue
+                    if plane_origin and plane_normal:
+                        if point_plane_distance(circle.center) > tol:
+                            continue
+                    return edge
+
+        for body in bodies:
+            for edge in body.edges:
+                circle = adsk.core.Circle3D.cast(edge.geometry)
+                if not circle:
+                    arc = adsk.core.Arc3D.cast(edge.geometry)
+                    if arc:
+                        circle = adsk.core.Circle3D.cast(arc.circle)
+                if not circle:
+                    continue
+                if abs(circle.radius - radius) > tol:
+                    continue
+                if circle.center.distanceTo(center_point) > tol:
+                    continue
+
+                plane_dist = point_plane_distance(circle.center)
+                if best_plane_dist is None or plane_dist < best_plane_dist:
+                    best_plane_dist = plane_dist
+                    best_edge = edge
+        return best_edge
+
+    for _, sketch_center, model_center in centers:
+        circle = target_sketch.sketchCurves.sketchCircles.addByCenterRadius(sketch_center, radius)
 
         profile = None
         fallback_profile = None
@@ -217,6 +324,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
 
         extrudes = target_sketch.parentComponent.features.extrudeFeatures
         success = False
+        ext_feature = None
         for is_positive in (True, False):
             ext_input = extrudes.createInput(profile, adsk.fusion.FeatureOperations.CutFeatureOperation)
             ext_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(depth_value))
@@ -229,7 +337,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
             elif not is_positive:
                 ext_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-depth_value))
             try:
-                extrudes.add(ext_input)
+                ext_feature = extrudes.add(ext_input)
                 success = True
                 break
             except:
@@ -237,6 +345,27 @@ def command_execute(args: adsk.core.CommandEventArgs):
 
         if not success:
             futil.log('Kein Zielkörper zum Schneiden gefunden.', force_console=True)
+            continue
+
+        if chamfer_enabled.value:
+            edge = find_circle_edge(model_center, ext_feature)
+            if edge:
+                try:
+                    token = edge.entityToken
+                except:
+                    token = 'n/a'
+                futil.log(f'Fasen-Kante gefunden: {token}', force_console=True)
+                chamfer_feats = target_sketch.parentComponent.features.chamferFeatures
+                single = adsk.core.ObjectCollection.create()
+                single.add(edge)
+                try:
+                    chamfer_feat_input = chamfer_feats.createInput(single, False)
+                    chamfer_feat_input.setToEqualDistance(chamfer_value)
+                    chamfer_feats.add(chamfer_feat_input)
+                except:
+                    futil.log('Fase für diese Kante fehlgeschlagen.', force_console=True)
+            else:
+                futil.log('Keine passende Fasen-Kante gefunden.', force_console=True)
 
 
 # This event handler is called when the user interacts with any of the inputs in the dialog
