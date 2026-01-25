@@ -2,7 +2,8 @@
 
 ## Version 0.2.1 - 2026-01-25
 
--JSON in Englisch
+- JSON in Englisch
+- fix: Error bei Bohrung durch schrägen Flächen und zuwenig Fleisch für Bohrung
 
 ## Version 0.2.0 - 2026-01-25
 

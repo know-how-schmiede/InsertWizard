@@ -337,10 +337,6 @@ def command_execute(args: adsk.core.CommandEventArgs):
                 for edge in face.edges:
                     circle = adsk.core.Circle3D.cast(edge.geometry)
                     if not circle:
-                        arc = adsk.core.Arc3D.cast(edge.geometry)
-                        if arc:
-                            circle = adsk.core.Circle3D.cast(arc.circle)
-                    if not circle:
                         continue
                     if abs(circle.radius - radius) > tol:
                         continue
@@ -354,10 +350,6 @@ def command_execute(args: adsk.core.CommandEventArgs):
         for body in bodies:
             for edge in body.edges:
                 circle = adsk.core.Circle3D.cast(edge.geometry)
-                if not circle:
-                    arc = adsk.core.Arc3D.cast(edge.geometry)
-                    if arc:
-                        circle = adsk.core.Circle3D.cast(arc.circle)
                 if not circle:
                     continue
                 if abs(circle.radius - radius) > tol:
