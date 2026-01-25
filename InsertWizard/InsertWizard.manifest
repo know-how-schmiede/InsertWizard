@@ -1,0 +1,13 @@
+{
+	"autodeskProduct":	"Fusion",
+	"type":	"addin",
+	"author":	"Rene Triebenstein",
+	"description":	{
+		"":	"Generiere blitzschnell präzise Bohrungen für Heat-Set Inserts direkt aus Skizzenpunkten. Inklusive Hersteller-Presets für perfekte Passgenauigkeit und professionelle Ergebnisse bei all deinen 3D-Druck-Projekten."
+	},
+	"version":	"",
+	"runOnStartup":	false,
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true,
+	"iconFilename":	"AddInIcon.svg"
+}
