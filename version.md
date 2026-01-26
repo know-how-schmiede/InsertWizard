@@ -3,6 +3,8 @@
 ## Version 0.2.2 - 2026-01-26
 
 - fix: Installation
+- Vorgaben für 3DJake
+- Vorgaben für CNCKITCHEN
 
 ## Version 0.2.1 - 2026-01-25
 
