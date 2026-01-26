@@ -5,6 +5,8 @@
 - fix: Installation
 - Vorgaben für 3DJake
 - Vorgaben für CNCKITCHEN
+- Umbenennung Extrusion nach Preset (Manufacturer + Thread)
+- Extrusionen in Gruppen zusammenfassen
 
 ## Version 0.2.1 - 2026-01-25
 

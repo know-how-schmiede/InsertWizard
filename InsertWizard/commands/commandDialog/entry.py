@@ -82,6 +82,35 @@ def _apply_preset(preset: dict, diameter_input: adsk.core.ValueCommandInput, dep
     if depth is not None:
         depth_input.expression = f'{depth} mm'
 
+def _preset_base_name(preset: dict) -> str:
+    manufacturer = str(preset.get('Manufacturer', preset.get('Hersteller', 'Preset'))).strip()
+    thread = str(preset.get('Thread', preset.get('Gewinde', ''))).strip()
+    thread = ''.join(thread.split())
+    if thread:
+        return f'{manufacturer}_{thread}'
+    return manufacturer
+
+
+def _next_extrude_index(component: adsk.fusion.Component, base_name: str) -> int:
+    prefix = f'{base_name}-'
+    max_index = 0
+    for feat in component.features.extrudeFeatures:
+        try:
+            name = feat.name
+        except:
+            continue
+        if not name.startswith(prefix):
+            continue
+        suffix = name[len(prefix):]
+        try:
+            idx = int(suffix)
+        except:
+            continue
+        if idx > max_index:
+            max_index = idx
+    return max_index + 1
+
+
 
 # Executed when add-in is run.
 def start():
@@ -204,6 +233,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
     points_input: adsk.core.SelectionCommandInput = inputs.itemById('points')
     diameter_input: adsk.core.ValueCommandInput = inputs.itemById('diameter')
     depth_input: adsk.core.ValueCommandInput = inputs.itemById('depth')
+    preset_input: adsk.core.DropDownCommandInput = inputs.itemById('preset')
     chamfer_enabled: adsk.core.BoolValueCommandInput = inputs.itemById('chamfer_enabled')
     chamfer_input: adsk.core.DropDownCommandInput = inputs.itemById('chamfer')
 
@@ -281,6 +311,12 @@ def command_execute(args: adsk.core.CommandEventArgs):
         return
 
     base_sketch = centers[0][0]
+    base_name = 'Insert'
+    selected_preset = None
+    if preset_input and preset_input.selectedItem:
+        selected_preset = PRESET_BY_NAME.get(preset_input.selectedItem.name)
+    if selected_preset:
+        base_name = _preset_base_name(selected_preset)
     plane_entity = None
     plane_origin = None
     plane_normal = None
@@ -297,6 +333,9 @@ def command_execute(args: adsk.core.CommandEventArgs):
         plane_normal = plane.normal
 
     target_sketch = base_sketch
+    next_index = _next_extrude_index(target_sketch.parentComponent, base_name)
+    created_timeline_indices = []
+    group_index = None
 
     # Determine target bodies for the cut.
     target_bodies = adsk.core.ObjectCollection.create()
@@ -413,6 +452,22 @@ def command_execute(args: adsk.core.CommandEventArgs):
             futil.log('Kein Zielkörper zum Schneiden gefunden.', force_console=True)
             continue
 
+        if ext_feature:
+            try:
+                ext_feature.name = f'{base_name}-{next_index}'
+            except:
+                pass
+            if group_index is None:
+                group_index = next_index
+            try:
+                timeline_obj = ext_feature.timelineObject
+                if timeline_obj:
+                    created_timeline_indices.append(timeline_obj.index)
+            except:
+                pass
+            next_index += 1
+
+
         if chamfer_enabled.value:
             edge = find_circle_edge(model_center, ext_feature)
             if edge:
@@ -427,11 +482,33 @@ def command_execute(args: adsk.core.CommandEventArgs):
                 try:
                     chamfer_feat_input = chamfer_feats.createInput(single, False)
                     chamfer_feat_input.setToEqualDistance(chamfer_value)
-                    chamfer_feats.add(chamfer_feat_input)
+                    chamfer_feature = chamfer_feats.add(chamfer_feat_input)
+                    try:
+                        timeline_obj = chamfer_feature.timelineObject
+                        if timeline_obj:
+                            created_timeline_indices.append(timeline_obj.index)
+                    except:
+                        pass
                 except:
                     futil.log('Fase für diese Kante fehlgeschlagen.', force_console=True)
             else:
                 futil.log('Keine passende Fasen-Kante gefunden.', force_console=True)
+
+    if created_timeline_indices:
+        try:
+            min_index = min(created_timeline_indices)
+            max_index = max(created_timeline_indices)
+            timeline_groups = design.timeline.timelineGroups
+            group = timeline_groups.add(min_index, max_index)
+            group_name = f'group_{base_name}'
+            if group_index is not None:
+                group_name = f'group_{base_name}-{group_index}'
+            try:
+                group.name = group_name
+            except:
+                pass
+        except:
+            pass
 
 
 # This event handler is called when the user changes anything in the command dialog

@@ -1,43 +1,55 @@
-# InsertWizard
-🚀 Fusion 360 Add-In zur automatisierten Erstellung von Bohrungen für Heat-Set Inserts (z.B. Ruthex). Skizzenpunkte wählen, Preset laden, fertig!
+# InsertWizard - Fusion 360 Heat-Set Insert Helper
 
-# InsertWizard 🛠️ – Fusion 360 Heat-Set Helper
+InsertWizard is a Fusion 360 add-in that creates precise heat-set insert holes from sketch points. Pick a preset, select points, and the add-in generates the cuts (and optional chamfers) for you.
 
-**Präzision, die schmilzt: Perfekte Heat-Set Bohrungen auf Knopfdruck.**
+## Features
+- One-click hole creation from sketch points (multi-select supported).
+- Preset library in `presets.json` (e.g., Ruthex, CNC Kitchen, 3D-Jake, ISO-style defaults).
+- Optional chamfer with selectable size.
+- Parametric features that remain fully editable in Fusion 360.
+- Automatic naming and grouping per run.
 
-InsertWizard ist ein Add-In für Autodesk Fusion 360, das den Workflow für 3D-Druck-Konstruktionen beschleunigt. Statt manuell Durchmesser, Tiefen und Fasen für Einschmelzhülsen einzugeben, generiert dieses Tool basierend auf Skizzenpunkten automatisch die exakten Bohrungsgeometrien.
+## Naming and grouping
+- Each extrusion created in a run is named: `<Manufacturer>_<Thread>-<N>`
+  - Example: `ruthex_M3-1`
+  - Whitespace in the thread name is removed (e.g., `M3 kurz` -> `M3kurz`).
+- All features created in a single run (extrusions and chamfers) are grouped in the timeline.
+  - Group name: `group_<Manufacturer>_<Thread>-<N>`
 
-## ✨ Features
-* **Ein-Klick-Generierung:** Wähle einfach Skizzenpunkte aus, und das Tool platziert die Bohrungen.
-* **Hersteller-Presets:** Vordefinierte Maße für gängige Hülsen (z.B. Ruthex, CNC Kitchen) für M2, M3, M4, M5 und M6.
-* **Automatischer Wulst-Schutz:** Erstellt automatisch die notwendige Senkung/Fase, um Materialverdrängung nach außen zu verhindern.
-* **Parametrisch:** Alle Bohrungen bleiben innerhalb von Fusion 360 bearbeitbar.
+## Presets file
+Presets are loaded from `presets.json` in the add-in root. You can add your own by extending the list:
 
-## 🚀 Installation
-1. Lade die aktuelle [Release-ZIP](#) herunter.
-2. Entpacke den Ordner in deinen Fusion 360 Add-Ins Ordner:
-   - **Windows:** `%AppData%\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns`
-   - **macOS:** `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns`
-3. Starte Fusion 360.
-4. Öffne das Menü **Zusatzmodule (Alt+S)** und starte **InsertWizard**.
+```json
+{
+  "presets": [
+    {
+      "Manufacturer": "ruthex",
+      "Thread": "M3",
+      "Diameter": 4.0,
+      "Length": 5.7
+    }
+  ]
+}
+```
 
-## 📖 Bedienung
-1. Erstelle eine Skizze und setze **Punkte** an die Stellen, an denen Inserts platziert werden sollen.
-2. Starte das Plugin über den Reiter "Konstruieren" -> "Erstellen".
-3. Wähle die Punkte aus.
-4. Wähle den Typ der Hülse (z.B. Ruthex M3) aus dem Dropdown-Menü.
-5. Bestätige mit **OK**.
+## Installation
+1. Download the latest release ZIP.
+2. Extract the folder into your Fusion 360 Add-Ins directory:
+   - Windows: `%AppData%\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns`
+   - macOS: `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns`
+3. Start Fusion 360.
+4. Open **Add-Ins** and start **InsertWizard**.
 
+## Usage
+1. Create a sketch and place points where inserts should be located.
+2. Run InsertWizard (Solid workspace -> Create panel).
+3. Select one or more sketch points (all from the same sketch).
+4. Choose a preset (e.g., `ruthex M3`).
+5. Adjust diameter/depth if needed and select a chamfer option.
+6. Click **OK**.
 
+## License
+MIT License - see `LICENSE` for details.
 
-## 🛠️ Unterstützte Hardware
-Standardmäßig sind Presets für folgende Hersteller enthalten:
-* **Ruthex** (Original & Slim)
-* **CNC Kitchen**
-* **Standard-ISO** (für generische Hülsen)
-
-## 📄 Lizenz
-Dieses Projekt ist unter der MIT-Lizenz lizenziert – siehe [LICENSE](LICENSE) für Details.
-
----
-*Entwickelt für Maker und Profis, die Wert auf passgenaue Verbindungen legen.*
+## Support the project
+If you want to support the project, you can contribute via the Amazon wishlist: https://www.amazon.de/hz/wishlist/ls/LHL8DJWGYH8D?ref_=wl_share
