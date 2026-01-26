@@ -1,6 +1,14 @@
-# Assuming you have not changed the general structure of the template no modification is needed in this file.
-from . import commands
-from .lib import fusionAddInUtils as futil
+import os
+import sys
+
+# Ensure the add-in root is on sys.path so absolute imports work in Fusion's loader.
+ADDIN_DIR = os.path.dirname(os.path.abspath(__file__))
+if ADDIN_DIR in sys.path:
+    sys.path.remove(ADDIN_DIR)
+sys.path.insert(0, ADDIN_DIR)
+
+import commands
+from lib import fusionAddInUtils as futil
 
 
 def run(context):

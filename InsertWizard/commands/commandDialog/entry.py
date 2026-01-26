@@ -2,9 +2,9 @@ import adsk.core
 import adsk.fusion
 import json
 import os
-from ...lib import fusionAddInUtils as futil
-from ... import config
-from ... import version
+from lib import fusionAddInUtils as futil
+import config
+import version
 app = adsk.core.Application.get()
 ui = app.userInterface
 

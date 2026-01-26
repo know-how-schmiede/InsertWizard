@@ -1,8 +1,8 @@
 import json
 import adsk.core
 import os
-from ...lib import fusionAddInUtils as futil
-from ... import config
+from lib import fusionAddInUtils as futil
+import config
 from datetime import datetime
 
 app = adsk.core.Application.get()
