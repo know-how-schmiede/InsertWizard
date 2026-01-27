@@ -1,5 +1,13 @@
 # Versionen InsertWizard
 
+## Version 0.4.0 - 2026-01-27
+
+- i18n Sprachfile Deutsch
+- i18n Sprachfile Französisch
+- i18n Sprachfile Spanisch
+- i18n Sprachfile Italienisch
+- i18n Sprachfile Polnisch
+
 ## Version 0.3.2 - 2026-01-27
 
 - Logo Dialogfenster

@@ -116,70 +116,39 @@ def _is_dark_theme() -> bool:
                     continue
     return False
 
-I18N = {
-    'en': {
-        'cmd_description': 'InsertWizard dialog',
-        'points_label': 'Points',
-        'points_prompt': 'Select sketch points',
-        'manufacturer_label': 'Manufacturer',
-        'preset_label': 'Preset',
-        'diameter_label': 'Diameter 1',
-        'depth_label': 'Depth 1',
-        'thread_diameter_label': 'Thread Diameter',
-        'screw_depth_label': 'Screw Depth',
-        'chamfer_enabled_label': 'Create Chamfer',
-        'chamfer_label': 'Chamfer',
-        'keep_point_sketch_visible_label': 'Keep point sketch visible',
-        'msg_select_point': 'Please select at least one sketch point.',
-        'msg_no_design': 'No active design found.',
-        'msg_same_sketch': 'Please select points from the same sketch.',
-        'log_invalid_preset_format': 'Invalid preset format',
-        'log_preset_load_failed': 'Preset file could not be loaded: {error}',
-        'log_invalid_selection_index': 'Invalid selection index: {index}',
-        'log_chamfer': 'Chamfer: {value}',
-        'log_chamfer_disabled': 'Chamfer: disabled',
-        'log_selected_points': 'Selected points: {count}',
-        'log_point_coords': 'Point {index}: X={x:.3f} Y={y:.3f} Z={z:.3f}',
-        'log_no_target_body': 'No target body found in the component.',
-        'log_no_profile_circle': 'No profile found for circle.',
-        'log_no_target_cut': 'No target body found for cut.',
-        'log_no_profile_screw': 'No profile found for screw circle.',
-        'log_chamfer_edge': 'Chamfer edge found: {token}',
-        'log_chamfer_failed': 'Chamfer failed for this edge.',
-        'log_chamfer_edge_missing': 'No matching chamfer edge found.'
-    },
-    'de': {
-        'cmd_description': 'InsertWizard-Dialog',
-        'points_label': 'Punkte',
-        'points_prompt': 'Skizzenpunkte auswaehlen',
-        'manufacturer_label': 'Hersteller',
-        'preset_label': 'Preset',
-        'diameter_label': 'Durchmesser 1',
-        'depth_label': 'Tiefe 1',
-        'thread_diameter_label': 'Gewinde-Durchmesser',
-        'screw_depth_label': 'Schrauben-Tiefe',
-        'chamfer_enabled_label': 'Fase erstellen',
-        'chamfer_label': 'Fase',
-        'keep_point_sketch_visible_label': 'Punkte-Skizze sichtbar lassen',
-        'msg_select_point': 'Bitte mindestens einen Skizzenpunkt auswaehlen.',
-        'msg_no_design': 'Kein aktives Design gefunden.',
-        'msg_same_sketch': 'Bitte nur Punkte aus derselben Skizze auswaehlen.',
-        'log_invalid_preset_format': 'Ungueltiges Preset-Format',
-        'log_preset_load_failed': 'Preset-Datei konnte nicht geladen werden: {error}',
-        'log_invalid_selection_index': 'Ungueltiger Auswahlindex: {index}',
-        'log_chamfer': 'Fase: {value}',
-        'log_chamfer_disabled': 'Fase: deaktiviert',
-        'log_selected_points': 'Ausgewaehlte Punkte: {count}',
-        'log_point_coords': 'Punkt {index}: X={x:.3f} Y={y:.3f} Z={z:.3f}',
-        'log_no_target_body': 'Kein Zielkoerper im Component gefunden.',
-        'log_no_profile_circle': 'Kein Profil fuer Kreis gefunden.',
-        'log_no_target_cut': 'Kein Zielkoerper zum Schneiden gefunden.',
-        'log_no_profile_screw': 'Kein Profil fuer Schraubenkreis gefunden.',
-        'log_chamfer_edge': 'Fasen-Kante gefunden: {token}',
-        'log_chamfer_failed': 'Fase fuer diese Kante fehlgeschlagen.',
-        'log_chamfer_edge_missing': 'Keine passende Fasen-Kante gefunden.'
-    }
-}
+I18N_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'i18n')
+)
+I18N_CACHE = {}
+
+
+def _load_translation_file(lang: str) -> dict:
+    if not lang:
+        return {}
+    path = os.path.join(I18N_DIR, f'{lang}.json')
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8') as handle:
+            data = json.load(handle)
+        if isinstance(data, dict):
+            return data
+    except:
+        pass
+    return {}
+
+
+def _get_translations(lang: str) -> dict:
+    if lang not in I18N_CACHE:
+        I18N_CACHE[lang] = _load_translation_file(lang)
+    return I18N_CACHE[lang]
+
+
+def _language_supported(lang: str) -> bool:
+    if not lang:
+        return False
+    path = os.path.join(I18N_DIR, f'{lang}.json')
+    return os.path.isfile(path)
 
 
 def _extract_lang(value):
@@ -195,13 +164,21 @@ def _extract_lang(value):
     text = str(value).strip().lower()
     if not text:
         return None
-    for prefix in ('de', 'en'):
+    for prefix in ('de', 'en', 'fr', 'es', 'it', 'pl'):
         if text == prefix or text.startswith(prefix + '-') or text.startswith(prefix + '_'):
             return prefix
     if text.startswith('german') or text.startswith('deutsch'):
         return 'de'
     if text.startswith('english'):
         return 'en'
+    if text.startswith('french') or text.startswith('francais') or text.startswith('franc'):
+        return 'fr'
+    if text.startswith('spanish') or text.startswith('espan'):
+        return 'es'
+    if text.startswith('italian') or text.startswith('ital'):
+        return 'it'
+    if text.startswith('polish') or text.startswith('pol'):
+        return 'pl'
     return None
 
 
@@ -224,7 +201,7 @@ def _detect_language():
                 if not hasattr(obj, attr):
                     continue
                 lang = _extract_lang(getattr(obj, attr))
-                if lang in I18N:
+                if lang and _language_supported(lang):
                     return lang
             except:
                 continue
@@ -245,16 +222,21 @@ def _resolve_language():
             detected = _detect_language()
             return detected or 'en'
         lang = _extract_lang(override)
-        if lang in I18N:
+        if lang and _language_supported(lang):
             return lang
+    detected = _detect_language()
+    if detected:
+        return detected
     return 'en'
 
 
 LANGUAGE = _resolve_language()
+EN_TRANSLATIONS = _get_translations('en')
+ACTIVE_TRANSLATIONS = _get_translations(LANGUAGE)
 
 
 def tr(key: str, **kwargs) -> str:
-    text = I18N.get(LANGUAGE, {}).get(key) or I18N['en'].get(key) or key
+    text = ACTIVE_TRANSLATIONS.get(key) or EN_TRANSLATIONS.get(key) or key
     if kwargs:
         try:
             return text.format(**kwargs)
