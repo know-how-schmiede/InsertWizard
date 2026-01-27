@@ -13,7 +13,6 @@ ui = app.userInterface
 # TODO *** Specify the command identity information. ***
 CMD_ID = f'{config.COMPANY_NAME}_{config.ADDIN_NAME}_cmdDialog'
 CMD_NAME = f'InsertWizard v{version.__version__}'
-CMD_Description = 'InsertWizard Dialog'
 
 # Specify that the command will be promoted to the panel.
 IS_PROMOTED = True
@@ -27,6 +26,10 @@ PANEL_ID = 'SolidCreatePanel'
 
 # Resource location for command icons, here we assume a sub folder in this directory named "resources".
 ICON_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources', '')
+LOGO_FILE_LIGHT = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'images', 'Logo_InsertWizard_200.png')
+)
+LOGO_FILE_DARK = LOGO_FILE_LIGHT
 
 # Local list of event handlers used to maintain a reference so
 # they are not released and garbage collected.
@@ -89,6 +92,175 @@ def _auto_screw_depth_mm(
         return None
     return round(depth_mm + int(thread_mm), 3)
 
+
+def _is_dark_theme() -> bool:
+    try:
+        return bool(ui.isDarkTheme)
+    except:
+        pass
+    try:
+        prefs = app.preferences
+    except:
+        prefs = None
+    if prefs:
+        try:
+            general = prefs.generalPreferences
+        except:
+            general = None
+        if general:
+            for attr in ('isDarkTheme', 'useDarkTheme'):
+                try:
+                    if hasattr(general, attr):
+                        return bool(getattr(general, attr))
+                except:
+                    continue
+    return False
+
+I18N = {
+    'en': {
+        'cmd_description': 'InsertWizard dialog',
+        'points_label': 'Points',
+        'points_prompt': 'Select sketch points',
+        'manufacturer_label': 'Manufacturer',
+        'preset_label': 'Preset',
+        'diameter_label': 'Diameter 1',
+        'depth_label': 'Depth 1',
+        'thread_diameter_label': 'Thread Diameter',
+        'screw_depth_label': 'Screw Depth',
+        'chamfer_enabled_label': 'Create Chamfer',
+        'chamfer_label': 'Chamfer',
+        'keep_point_sketch_visible_label': 'Keep point sketch visible',
+        'msg_select_point': 'Please select at least one sketch point.',
+        'msg_no_design': 'No active design found.',
+        'msg_same_sketch': 'Please select points from the same sketch.',
+        'log_invalid_preset_format': 'Invalid preset format',
+        'log_preset_load_failed': 'Preset file could not be loaded: {error}',
+        'log_invalid_selection_index': 'Invalid selection index: {index}',
+        'log_chamfer': 'Chamfer: {value}',
+        'log_chamfer_disabled': 'Chamfer: disabled',
+        'log_selected_points': 'Selected points: {count}',
+        'log_point_coords': 'Point {index}: X={x:.3f} Y={y:.3f} Z={z:.3f}',
+        'log_no_target_body': 'No target body found in the component.',
+        'log_no_profile_circle': 'No profile found for circle.',
+        'log_no_target_cut': 'No target body found for cut.',
+        'log_no_profile_screw': 'No profile found for screw circle.',
+        'log_chamfer_edge': 'Chamfer edge found: {token}',
+        'log_chamfer_failed': 'Chamfer failed for this edge.',
+        'log_chamfer_edge_missing': 'No matching chamfer edge found.'
+    },
+    'de': {
+        'cmd_description': 'InsertWizard-Dialog',
+        'points_label': 'Punkte',
+        'points_prompt': 'Skizzenpunkte auswaehlen',
+        'manufacturer_label': 'Hersteller',
+        'preset_label': 'Preset',
+        'diameter_label': 'Durchmesser 1',
+        'depth_label': 'Tiefe 1',
+        'thread_diameter_label': 'Gewinde-Durchmesser',
+        'screw_depth_label': 'Schrauben-Tiefe',
+        'chamfer_enabled_label': 'Fase erstellen',
+        'chamfer_label': 'Fase',
+        'keep_point_sketch_visible_label': 'Punkte-Skizze sichtbar lassen',
+        'msg_select_point': 'Bitte mindestens einen Skizzenpunkt auswaehlen.',
+        'msg_no_design': 'Kein aktives Design gefunden.',
+        'msg_same_sketch': 'Bitte nur Punkte aus derselben Skizze auswaehlen.',
+        'log_invalid_preset_format': 'Ungueltiges Preset-Format',
+        'log_preset_load_failed': 'Preset-Datei konnte nicht geladen werden: {error}',
+        'log_invalid_selection_index': 'Ungueltiger Auswahlindex: {index}',
+        'log_chamfer': 'Fase: {value}',
+        'log_chamfer_disabled': 'Fase: deaktiviert',
+        'log_selected_points': 'Ausgewaehlte Punkte: {count}',
+        'log_point_coords': 'Punkt {index}: X={x:.3f} Y={y:.3f} Z={z:.3f}',
+        'log_no_target_body': 'Kein Zielkoerper im Component gefunden.',
+        'log_no_profile_circle': 'Kein Profil fuer Kreis gefunden.',
+        'log_no_target_cut': 'Kein Zielkoerper zum Schneiden gefunden.',
+        'log_no_profile_screw': 'Kein Profil fuer Schraubenkreis gefunden.',
+        'log_chamfer_edge': 'Fasen-Kante gefunden: {token}',
+        'log_chamfer_failed': 'Fase fuer diese Kante fehlgeschlagen.',
+        'log_chamfer_edge_missing': 'Keine passende Fasen-Kante gefunden.'
+    }
+}
+
+
+def _extract_lang(value):
+    if value is None:
+        return None
+    try:
+        if hasattr(value, 'name'):
+            value = value.name
+    except:
+        pass
+    if isinstance(value, (int, float)):
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    for prefix in ('de', 'en'):
+        if text == prefix or text.startswith(prefix + '-') or text.startswith(prefix + '_'):
+            return prefix
+    if text.startswith('german') or text.startswith('deutsch'):
+        return 'de'
+    if text.startswith('english'):
+        return 'en'
+    return None
+
+
+def _detect_language():
+    candidates = [ui, app]
+    try:
+        candidates.append(app.preferences)
+    except:
+        pass
+    try:
+        candidates.append(app.preferences.generalPreferences)
+    except:
+        pass
+
+    for obj in candidates:
+        if not obj:
+            continue
+        for attr in ('language', 'locale', 'userLanguage', 'userLocale', 'uiLanguage', 'languagePreference'):
+            try:
+                if not hasattr(obj, attr):
+                    continue
+                lang = _extract_lang(getattr(obj, attr))
+                if lang in I18N:
+                    return lang
+            except:
+                continue
+    return None
+
+
+def _resolve_language():
+    override = None
+    try:
+        override = getattr(config, 'LANGUAGE', None)
+    except:
+        override = None
+    if not override:
+        override = os.environ.get('INSERTWIZARD_LANG', '')
+    if override:
+        override_text = str(override).strip().lower()
+        if override_text == 'auto':
+            detected = _detect_language()
+            return detected or 'en'
+        lang = _extract_lang(override)
+        if lang in I18N:
+            return lang
+    return 'en'
+
+
+LANGUAGE = _resolve_language()
+
+
+def tr(key: str, **kwargs) -> str:
+    text = I18N.get(LANGUAGE, {}).get(key) or I18N['en'].get(key) or key
+    if kwargs:
+        try:
+            return text.format(**kwargs)
+        except:
+            return text
+    return text
 
 def _preset_display_name(preset: dict) -> str:
     manufacturer = str(preset.get('Manufacturer', preset.get('Hersteller', 'Preset'))).strip()
@@ -187,9 +359,9 @@ def _load_presets() -> list:
             data = json.load(handle)
         presets = data.get('presets', data) if isinstance(data, dict) else data
         if not isinstance(presets, list):
-            raise ValueError('Ungültiges Preset-Format')
+            raise ValueError(tr('log_invalid_preset_format'))
     except Exception as exc:
-        futil.log(f'Preset-Datei konnte nicht geladen werden: {exc}', force_console=True)
+        futil.log(tr('log_preset_load_failed', error=exc), force_console=True)
         presets = []
 
     if not presets:
@@ -294,7 +466,7 @@ def _next_extrude_index(component: adsk.fusion.Component, base_name: str) -> int
 # Executed when add-in is run.
 def start():
     # Create a command Definition.
-    cmd_def = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, CMD_Description, ICON_FOLDER)
+    cmd_def = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, tr('cmd_description'), ICON_FOLDER)
 
     # Define an event handler for the command created event. It will be called when the button is clicked.
     futil.add_handler(cmd_def.commandCreated, command_created)
@@ -341,9 +513,17 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
 
     # Show a simple dialog that displays the add-in name.
     inputs.addTextBoxCommandInput('title', '', CMD_NAME, 1, True)
+    try:
+        logo_path = LOGO_FILE_LIGHT
+        if _is_dark_theme() and os.path.exists(LOGO_FILE_DARK):
+            logo_path = LOGO_FILE_DARK
+        logo_input = inputs.addImageCommandInput('logo', '', logo_path)
+        logo_input.isFullWidth = True
+    except:
+        pass
 
     # Selection input for one or more sketch points.
-    points_input = inputs.addSelectionInput('points', 'Punkte', 'Skizzenpunkte auswählen')
+    points_input = inputs.addSelectionInput('points', tr('points_label'), tr('points_prompt'))
     points_input.addSelectionFilter('SketchPoints')
     points_input.setSelectionLimits(1, 0)
     try:
@@ -366,7 +546,7 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
 
     manufacturer_input = inputs.addDropDownCommandInput(
         'manufacturer',
-        'Hersteller',
+        tr('manufacturer_label'),
         adsk.core.DropDownStyles.TextListDropDownStyle
     )
     for name in manufacturers:
@@ -374,7 +554,7 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
 
     preset_input = inputs.addDropDownCommandInput(
         'preset',
-        'Preset',
+        tr('preset_label'),
         adsk.core.DropDownStyles.TextListDropDownStyle
     )
     selected_manufacturer = manufacturer_input.selectedItem.name if manufacturer_input.selectedItem else ''
@@ -382,18 +562,18 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
 
     # Diameter input in mm with a default of 10 mm.
     default_diameter = adsk.core.ValueInput.createByString('10 mm')
-    inputs.addValueInput('diameter', 'Durchmesser 1', 'mm', default_diameter)
+    inputs.addValueInput('diameter', tr('diameter_label'), 'mm', default_diameter)
 
     # Depth input in mm.
     default_depth = adsk.core.ValueInput.createByString('5 mm')
-    inputs.addValueInput('depth', 'Tiefe 1', 'mm', default_depth)
+    inputs.addValueInput('depth', tr('depth_label'), 'mm', default_depth)
 
     # Thread diameter and screw depth inputs in mm.
     default_thread_diameter = adsk.core.ValueInput.createByString('3.2 mm')
-    inputs.addValueInput('thread_diameter', 'Gewinde-Durchmesser', 'mm', default_thread_diameter)
+    inputs.addValueInput('thread_diameter', tr('thread_diameter_label'), 'mm', default_thread_diameter)
 
     default_screw_depth = adsk.core.ValueInput.createByString('5 mm')
-    inputs.addValueInput('screw_depth', 'Schrauben-Tiefe', 'mm', default_screw_depth)
+    inputs.addValueInput('screw_depth', tr('screw_depth_label'), 'mm', default_screw_depth)
 
     diameter_input: adsk.core.ValueCommandInput = inputs.itemById('diameter')
     depth_input: adsk.core.ValueCommandInput = inputs.itemById('depth')
@@ -412,12 +592,12 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
         )
 
     # Chamfer on/off toggle.
-    inputs.addBoolValueInput('chamfer_enabled', 'Fase erstellen', True, '', True)
+    inputs.addBoolValueInput('chamfer_enabled', tr('chamfer_enabled_label'), True, '', True)
 
     # Chamfer size selection.
     chamfer_input = inputs.addDropDownCommandInput(
         'chamfer',
-        'Fase',
+        tr('chamfer_label'),
         adsk.core.DropDownStyles.TextListDropDownStyle
     )
     chamfer_items = chamfer_input.listItems
@@ -428,7 +608,7 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
     # Keep the placement sketch visible after creating features.
     inputs.addBoolValueInput(
         'keep_point_sketch_visible',
-        'Punkte-Skizze sichtbar lassen',
+        tr('keep_point_sketch_visible_label'),
         True,
         '',
         KEEP_POINT_SKETCH_VISIBLE
@@ -459,7 +639,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
     keep_point_sketch_visible: adsk.core.BoolValueCommandInput = inputs.itemById('keep_point_sketch_visible')
 
     if points_input.selectionCount < 1:
-        ui.messageBox('Bitte mindestens einen Skizzenpunkt auswählen.')
+        ui.messageBox(tr('msg_select_point'))
         return
 
     global KEEP_POINT_SKETCH_VISIBLE
@@ -468,7 +648,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
 
     design = adsk.fusion.Design.cast(app.activeProduct)
     if not design:
-        ui.messageBox('Kein aktives Design gefunden.')
+        ui.messageBox(tr('msg_no_design'))
         return
 
     radius = diameter_input.value / 2.0
@@ -478,12 +658,12 @@ def command_execute(args: adsk.core.CommandEventArgs):
     chamfer_value = None
     if chamfer_enabled.value:
         chamfer_value = adsk.core.ValueInput.createByString(chamfer_input.selectedItem.name)
-        futil.log(f'Fase: {chamfer_input.selectedItem.name}', force_console=True)
+        futil.log(tr('log_chamfer', value=chamfer_input.selectedItem.name), force_console=True)
     else:
-        futil.log('Fase: deaktiviert', force_console=True)
+        futil.log(tr('log_chamfer_disabled'), force_console=True)
 
     selection_count = points_input.selectionCount
-    futil.log(f'Ausgewählte Punkte: {selection_count}', force_console=True)
+    futil.log(tr('log_selected_points', count=selection_count), force_console=True)
 
     centers = []
     base_sketch = None
@@ -492,7 +672,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
         try:
             selection = points_input.selection(i)
         except:
-            futil.log(f'Ungültiger Auswahlindex: {i}', force_console=True)
+            futil.log(tr('log_invalid_selection_index', index=i), force_console=True)
             break
         entity = selection.entity
         if not entity:
@@ -526,12 +706,18 @@ def command_execute(args: adsk.core.CommandEventArgs):
             )
         )
         futil.log(
-            f'Punkt {i + 1}: X={sketch_center.x:.3f} Y={sketch_center.y:.3f} Z={sketch_center.z:.3f}',
+            tr(
+                'log_point_coords',
+                index=i + 1,
+                x=sketch_center.x,
+                y=sketch_center.y,
+                z=sketch_center.z
+            ),
             force_console=True
         )
 
     if mismatched_sketch:
-        ui.messageBox('Bitte nur Punkte aus derselben Skizze auswählen.')
+        ui.messageBox(tr('msg_same_sketch'))
         return
 
     if not centers:
@@ -575,7 +761,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
                 target_bodies.add(body)
 
     if target_bodies.count == 0:
-        futil.log('Kein Zielkörper im Component gefunden.', force_console=True)
+        futil.log(tr('log_no_target_body'), force_console=True)
         return
 
     bodies = []
@@ -665,7 +851,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
         profile = find_profile_for_circle(target_sketch, circle)
 
         if not profile:
-            futil.log('Kein Profil für Kreis gefunden.', force_console=True)
+            futil.log(tr('log_no_profile_circle'), force_console=True)
             continue
 
         extrudes = target_sketch.parentComponent.features.extrudeFeatures
@@ -690,7 +876,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
                 continue
 
         if not success:
-            futil.log('Kein Zielkörper zum Schneiden gefunden.', force_console=True)
+            futil.log(tr('log_no_target_cut'), force_console=True)
             continue
 
         if ext_feature:
@@ -721,7 +907,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
             screw_circle = screw_sketch.sketchCurves.sketchCircles.addByCenterRadius(screw_center, thread_radius)
             screw_profile = find_profile_for_circle(screw_sketch, screw_circle)
             if not screw_profile:
-                futil.log('Kein Profil für Schraubenkreis gefunden.', force_console=True)
+                futil.log(tr('log_no_profile_screw'), force_console=True)
             else:
                 screw_feature = None
                 for is_positive in (True, False):
@@ -760,7 +946,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
                     token = edge.entityToken
                 except:
                     token = 'n/a'
-                futil.log(f'Fasen-Kante gefunden: {token}', force_console=True)
+                futil.log(tr('log_chamfer_edge', token=token), force_console=True)
                 chamfer_feats = target_sketch.parentComponent.features.chamferFeatures
                 single = adsk.core.ObjectCollection.create()
                 single.add(edge)
@@ -775,9 +961,9 @@ def command_execute(args: adsk.core.CommandEventArgs):
                     except:
                         pass
                 except:
-                    futil.log('Fase für diese Kante fehlgeschlagen.', force_console=True)
+                    futil.log(tr('log_chamfer_failed'), force_console=True)
             else:
-                futil.log('Keine passende Fasen-Kante gefunden.', force_console=True)
+                futil.log(tr('log_chamfer_edge_missing'), force_console=True)
 
     if created_timeline_indices:
         try:

@@ -1,5 +1,11 @@
 # Versionen InsertWizard
 
+## Version 0.3.2 - 2026-01-27
+
+- Logo Dialogfenster
+- Dialogfenster in Englisch
+- Vorbereitungen i18n Mehrsprachigkeit
+
 ## Version 0.3.1 - 2026-01-27
 
 - Schrauben-Tiefe als Standart-Wert (Tiefe1 + abs(Gewinde-Durchmesser))
