@@ -1,5 +1,9 @@
 # Versionen InsertWizard
 
+## Version 0.4.1 - 2026-01-27
+
+fix: Sprachenerkennung und Sprachenumstellung
+
 ## Version 0.4.0 - 2026-01-27
 
 - i18n Sprachfile Deutsch

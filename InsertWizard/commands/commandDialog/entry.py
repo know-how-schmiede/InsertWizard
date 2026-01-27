@@ -116,10 +116,20 @@ def _is_dark_theme() -> bool:
                     continue
     return False
 
+SUPPORTED_LANGS = ('en', 'de', 'fr', 'es', 'it', 'pl')
 I18N_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'i18n')
 )
 I18N_CACHE = {}
+ENUM_LANG_CACHE = None
+LCID_LANG_MAP = {
+    1031: 'de',
+    1033: 'en',
+    1036: 'fr',
+    3082: 'es',
+    1040: 'it',
+    1045: 'pl'
+}
 
 
 def _load_translation_file(lang: str) -> dict:
@@ -150,6 +160,68 @@ def _language_supported(lang: str) -> bool:
     path = os.path.join(I18N_DIR, f'{lang}.json')
     return os.path.isfile(path)
 
+def _lang_from_text(text: str):
+    if not text:
+        return None
+    cleaned = str(text).strip().lower()
+    if not cleaned:
+        return None
+    if '(' in cleaned:
+        cleaned = cleaned.split('(')[0].strip()
+    for sep in ('.', '/', '\\'):
+        if sep in cleaned:
+            cleaned = cleaned.split(sep)[-1]
+    if ' ' in cleaned:
+        cleaned = cleaned.split()[-1]
+    for sep in ('-', '_'):
+        if sep in cleaned:
+            cleaned = cleaned.split(sep)[0]
+    if cleaned in SUPPORTED_LANGS:
+        return cleaned
+    if cleaned in ('german', 'deutsch', 'deu') or 'german' in cleaned or 'deutsch' in cleaned:
+        return 'de'
+    if cleaned in ('english', 'eng') or 'english' in cleaned:
+        return 'en'
+    if cleaned in ('french', 'francais', 'franc') or 'french' in cleaned or 'francais' in cleaned or 'franc' in cleaned:
+        return 'fr'
+    if cleaned in ('spanish', 'espanol', 'esp') or 'spanish' in cleaned or 'espanol' in cleaned:
+        return 'es'
+    if cleaned in ('italian', 'italiano', 'ita') or 'italian' in cleaned or 'italiano' in cleaned:
+        return 'it'
+    if cleaned in ('polish', 'polski', 'pol') or 'polish' in cleaned or 'polski' in cleaned:
+        return 'pl'
+    return None
+
+
+def _lang_from_enum(value):
+    global ENUM_LANG_CACHE
+    if ENUM_LANG_CACHE is None:
+        ENUM_LANG_CACHE = {}
+        try:
+            enum_cls = adsk.core.UserLanguages
+            for name in dir(enum_cls):
+                if name.startswith('_'):
+                    continue
+                try:
+                    enum_val = getattr(enum_cls, name)
+                except:
+                    continue
+                if isinstance(enum_val, (int, float)):
+                    code = _lang_from_text(name)
+                    if code:
+                        ENUM_LANG_CACHE[int(enum_val)] = code
+        except:
+            pass
+    try:
+        value_int = int(value)
+        if value_int in ENUM_LANG_CACHE:
+            return ENUM_LANG_CACHE[value_int]
+        if value_int in LCID_LANG_MAP:
+            return LCID_LANG_MAP[value_int]
+        return None
+    except:
+        return None
+
 
 def _extract_lang(value):
     if value is None:
@@ -160,26 +232,22 @@ def _extract_lang(value):
     except:
         pass
     if isinstance(value, (int, float)):
-        return None
-    text = str(value).strip().lower()
-    if not text:
-        return None
-    for prefix in ('de', 'en', 'fr', 'es', 'it', 'pl'):
-        if text == prefix or text.startswith(prefix + '-') or text.startswith(prefix + '_'):
-            return prefix
-    if text.startswith('german') or text.startswith('deutsch'):
-        return 'de'
-    if text.startswith('english'):
-        return 'en'
-    if text.startswith('french') or text.startswith('francais') or text.startswith('franc'):
-        return 'fr'
-    if text.startswith('spanish') or text.startswith('espan'):
-        return 'es'
-    if text.startswith('italian') or text.startswith('ital'):
-        return 'it'
-    if text.startswith('polish') or text.startswith('pol'):
-        return 'pl'
-    return None
+        return _lang_from_enum(value)
+    try:
+        if hasattr(value, 'value'):
+            enum_lang = _lang_from_enum(getattr(value, 'value'))
+            if enum_lang:
+                return enum_lang
+    except:
+        pass
+    try:
+        num_value = int(value)
+        enum_lang = _lang_from_enum(num_value)
+        if enum_lang:
+            return enum_lang
+    except:
+        pass
+    return _lang_from_text(value)
 
 
 def _detect_language():
@@ -196,7 +264,24 @@ def _detect_language():
     for obj in candidates:
         if not obj:
             continue
-        for attr in ('language', 'locale', 'userLanguage', 'userLocale', 'uiLanguage', 'languagePreference'):
+        for attr in (
+            'language',
+            'locale',
+            'userLanguage',
+            'userLocale',
+            'uiLanguage',
+            'languagePreference',
+            'userLanguagePreference',
+            'languageCode',
+            'languageId',
+            'languageID',
+            'userLanguageId',
+            'userLanguageID',
+            'userInterfaceLanguage',
+            'interfaceLanguage',
+            'uiLocale',
+            'activeLanguage'
+        ):
             try:
                 if not hasattr(obj, attr):
                     continue
@@ -227,15 +312,78 @@ def _resolve_language():
     detected = _detect_language()
     if detected:
         return detected
+    try:
+        import locale
+        loc = locale.getdefaultlocale()[0]
+        lang = _extract_lang(loc)
+        if lang and _language_supported(lang):
+            return lang
+    except:
+        pass
     return 'en'
 
 
-LANGUAGE = _resolve_language()
+LANGUAGE = None
 EN_TRANSLATIONS = _get_translations('en')
-ACTIVE_TRANSLATIONS = _get_translations(LANGUAGE)
+ACTIVE_TRANSLATIONS = {}
+
+
+def _log_language_debug():
+    try:
+        if not getattr(config, 'LANGUAGE_DEBUG', False):
+            return
+    except:
+        return
+    entries = []
+    candidates = []
+    candidates.append(('ui', ui))
+    candidates.append(('app', app))
+    try:
+        candidates.append(('preferences', app.preferences))
+    except:
+        pass
+    try:
+        candidates.append(('generalPreferences', app.preferences.generalPreferences))
+    except:
+        pass
+    for name, obj in candidates:
+        if not obj:
+            continue
+        for attr in dir(obj):
+            attr_lower = attr.lower()
+            if 'lang' not in attr_lower and 'locale' not in attr_lower:
+                continue
+            try:
+                val = getattr(obj, attr)
+            except:
+                continue
+            val_text = str(val)
+            if len(val_text) > 80:
+                val_text = val_text[:77] + '...'
+            entries.append(f'{name}.{attr}={val_text}')
+    futil.log(f"Language debug: override={getattr(config, 'LANGUAGE', None)}", force_console=True)
+    futil.log(f'Language debug: detected={_detect_language()} resolved={_resolve_language()}', force_console=True)
+    for item in entries:
+        futil.log(f'Language debug: {item}', force_console=True)
+
+
+def _set_language(lang: str):
+    global LANGUAGE, ACTIVE_TRANSLATIONS
+    if not lang:
+        lang = 'en'
+    if lang == LANGUAGE:
+        return
+    LANGUAGE = lang
+    ACTIVE_TRANSLATIONS = _get_translations(lang)
+
+
+def _ensure_language():
+    if not LANGUAGE:
+        _set_language(_resolve_language())
 
 
 def tr(key: str, **kwargs) -> str:
+    _ensure_language()
     text = ACTIVE_TRANSLATIONS.get(key) or EN_TRANSLATIONS.get(key) or key
     if kwargs:
         try:
@@ -448,6 +596,7 @@ def _next_extrude_index(component: adsk.fusion.Component, base_name: str) -> int
 # Executed when add-in is run.
 def start():
     # Create a command Definition.
+    _set_language(_resolve_language())
     cmd_def = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, tr('cmd_description'), ICON_FOLDER)
 
     # Define an event handler for the command created event. It will be called when the button is clicked.
@@ -489,6 +638,8 @@ def stop():
 def command_created(args: adsk.core.CommandCreatedEventArgs):
     # General logging for debug.
     futil.log(f'{CMD_NAME} Command Created Event')
+    _set_language(_resolve_language())
+    _log_language_debug()
 
     # https://help.autodesk.com/view/fusion360/ENU/?contextId=CommandInputs
     inputs = args.command.commandInputs

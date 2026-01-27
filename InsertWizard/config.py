@@ -13,6 +13,9 @@ DEBUG = True
 # Language selection: 'auto', 'en', 'de', 'fr', 'es', 'it', 'pl'
 LANGUAGE = 'auto'
 
+# Enable language detection debug logs.
+LANGUAGE_DEBUG = False
+
 # Gets the name of the add-in from the name of the folder the py file is in.
 # This is used when defining unique internal names for various UI elements 
 # that need a unique name. It's also recommended to use a company name as 
