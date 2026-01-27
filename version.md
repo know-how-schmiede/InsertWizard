@@ -1,5 +1,13 @@
 # Versionen InsertWizard
 
+## Version 0.3.1 - 2026-01-27
+
+- Schrauben-Tiefe als Standart-Wert (Tiefe1 + abs(Gewinde-Durchmesser))
+
+## Version 0.3.0 - 2026-01-27
+
+- Hersteller als Sortier-Möglichkeit
+
 ## Version 0.2.3 - 2026-01-27
 
 - Schrauben-Frei-Bohrung

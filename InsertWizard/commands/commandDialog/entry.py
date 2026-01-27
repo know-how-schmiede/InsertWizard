@@ -76,12 +76,109 @@ def _thread_clearance_diameter(thread: str):
     return round(size_key + 0.2, 2)
 
 
+def _auto_screw_depth_mm(
+    depth_input: adsk.core.ValueCommandInput,
+    thread_diameter_input: adsk.core.ValueCommandInput
+):
+    if not depth_input or not thread_diameter_input:
+        return None
+    try:
+        depth_mm = depth_input.value * 10.0
+        thread_mm = thread_diameter_input.value * 10.0
+    except:
+        return None
+    return round(depth_mm + int(thread_mm), 3)
+
+
 def _preset_display_name(preset: dict) -> str:
     manufacturer = str(preset.get('Manufacturer', preset.get('Hersteller', 'Preset'))).strip()
     thread = str(preset.get('Thread', preset.get('Gewinde', ''))).strip()
     if thread:
         return f'{manufacturer} {thread}'
     return manufacturer
+
+
+def _preset_manufacturer(preset: dict) -> str:
+    manufacturer = str(preset.get('Manufacturer', preset.get('Hersteller', ''))).strip()
+    return manufacturer or 'Preset'
+
+
+def _unique_manufacturers(presets: list) -> list:
+    manufacturers = []
+    seen = set()
+    for preset in presets:
+        name = _preset_manufacturer(preset)
+        if name not in seen:
+            manufacturers.append(name)
+            seen.add(name)
+    return manufacturers
+
+
+def _find_default_preset(presets: list):
+    fallback = None
+    for preset in presets:
+        if _preset_manufacturer(preset).lower() != 'default':
+            continue
+        if fallback is None:
+            fallback = preset
+        thread = str(preset.get('Thread', preset.get('Gewinde', ''))).strip()
+        if ''.join(thread.split()).lower().startswith('m3'):
+            return preset
+    return fallback
+
+
+def _clear_dropdown_items(dropdown: adsk.core.DropDownCommandInput):
+    items = dropdown.listItems
+    try:
+        items.clear()
+        return
+    except:
+        pass
+    try:
+        for idx in range(items.count - 1, -1, -1):
+            try:
+                items.item(idx).deleteMe()
+            except:
+                pass
+    except:
+        pass
+
+
+def _populate_preset_list(presets: list, preset_input: adsk.core.DropDownCommandInput, manufacturer: str):
+    global PRESET_BY_NAME
+    PRESET_BY_NAME = {}
+    _clear_dropdown_items(preset_input)
+    items = preset_input.listItems
+
+    def add_preset_item(preset, is_selected):
+        name = _preset_display_name(preset)
+        if name in PRESET_BY_NAME:
+            suffix = 2
+            candidate = f'{name} ({suffix})'
+            while candidate in PRESET_BY_NAME:
+                suffix += 1
+                candidate = f'{name} ({suffix})'
+            name = candidate
+        PRESET_BY_NAME[name] = preset
+        items.add(name, is_selected, '')
+
+    default_preset = _find_default_preset(presets)
+    filtered = []
+    for preset in presets:
+        if preset is default_preset:
+            continue
+        if manufacturer and _preset_manufacturer(preset).lower() != manufacturer.lower():
+            continue
+        filtered.append(preset)
+
+    if filtered:
+        if default_preset:
+            add_preset_item(default_preset, False)
+        for idx, preset in enumerate(filtered):
+            add_preset_item(preset, idx == 0)
+    else:
+        if default_preset:
+            add_preset_item(default_preset, True)
 
 
 def _load_presets() -> list:
@@ -122,10 +219,13 @@ def _apply_preset(
     thread = str(preset.get('Thread', preset.get('Gewinde', ''))).strip()
 
     old_depth_value = None
+    old_thread_value = None
     old_screw_depth_value = None
     if screw_depth_input:
         try:
             old_depth_value = depth_input.value
+            if thread_diameter_input:
+                old_thread_value = thread_diameter_input.value
             old_screw_depth_value = screw_depth_input.value
         except:
             pass
@@ -149,9 +249,16 @@ def _apply_preset(
         )
         if screw_depth is not None:
             screw_depth_input.expression = f'{screw_depth} mm'
-        elif depth is not None and old_depth_value is not None and old_screw_depth_value is not None:
-            if abs(old_screw_depth_value - old_depth_value) < 1e-6:
-                screw_depth_input.expression = f'{depth} mm'
+        else:
+            auto_mm = _auto_screw_depth_mm(depth_input, thread_diameter_input)
+            if auto_mm is not None:
+                old_auto_cm = None
+                if old_depth_value is not None and old_thread_value is not None:
+                    old_auto_cm = (old_depth_value * 10.0 + int(old_thread_value * 10.0)) / 10.0
+                if old_screw_depth_value is None or old_auto_cm is None:
+                    screw_depth_input.expression = f'{auto_mm} mm'
+                elif abs(old_screw_depth_value - old_auto_cm) < 1e-6:
+                    screw_depth_input.expression = f'{auto_mm} mm'
 
 
 def _preset_base_name(preset: dict) -> str:
@@ -245,21 +352,33 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
         # Older API versions may not expose this property.
         pass
 
-    # Preset selection.
+    # Manufacturer + preset selection.
     global PRESETS, PRESET_BY_NAME
     PRESETS = _load_presets()
     PRESET_BY_NAME = {}
+
+    manufacturers = _unique_manufacturers(PRESETS)
+    default_manufacturer = manufacturers[0] if manufacturers else ''
+    for name in manufacturers:
+        if name.lower() != 'default':
+            default_manufacturer = name
+            break
+
+    manufacturer_input = inputs.addDropDownCommandInput(
+        'manufacturer',
+        'Hersteller',
+        adsk.core.DropDownStyles.TextListDropDownStyle
+    )
+    for name in manufacturers:
+        manufacturer_input.listItems.add(name, name == default_manufacturer, '')
+
     preset_input = inputs.addDropDownCommandInput(
         'preset',
         'Preset',
         adsk.core.DropDownStyles.TextListDropDownStyle
     )
-    for index, preset in enumerate(PRESETS):
-        name = _preset_display_name(preset)
-        if name in PRESET_BY_NAME:
-            name = f'{name} ({index + 1})'
-        PRESET_BY_NAME[name] = preset
-        preset_input.listItems.add(name, index == 0, '')
+    selected_manufacturer = manufacturer_input.selectedItem.name if manufacturer_input.selectedItem else ''
+    _populate_preset_list(PRESETS, preset_input, selected_manufacturer)
 
     # Diameter input in mm with a default of 10 mm.
     default_diameter = adsk.core.ValueInput.createByString('10 mm')
@@ -280,9 +399,12 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
     depth_input: adsk.core.ValueCommandInput = inputs.itemById('depth')
     thread_diameter_input: adsk.core.ValueCommandInput = inputs.itemById('thread_diameter')
     screw_depth_input: adsk.core.ValueCommandInput = inputs.itemById('screw_depth')
-    if preset_input.listItems.count > 0:
+    auto_screw_depth = _auto_screw_depth_mm(depth_input, thread_diameter_input)
+    if auto_screw_depth is not None:
+        screw_depth_input.expression = f'{auto_screw_depth} mm'
+    if preset_input.selectedItem:
         _apply_preset(
-            PRESET_BY_NAME[preset_input.listItems.item(0).name],
+            PRESET_BY_NAME[preset_input.selectedItem.name],
             diameter_input,
             depth_input,
             thread_diameter_input,
@@ -690,6 +812,23 @@ def command_input_changed(args: adsk.core.InputChangedEventArgs):
     if changed_input.id == 'keep_point_sketch_visible':
         global KEEP_POINT_SKETCH_VISIBLE
         KEEP_POINT_SKETCH_VISIBLE = bool(changed_input.value)
+
+    if changed_input.id == 'manufacturer':
+        preset_input: adsk.core.DropDownCommandInput = args.inputs.itemById('preset')
+        selected_manufacturer = changed_input.selectedItem.name if changed_input.selectedItem else ''
+        _populate_preset_list(PRESETS, preset_input, selected_manufacturer)
+        if preset_input.selectedItem:
+            diameter_input: adsk.core.ValueCommandInput = args.inputs.itemById('diameter')
+            depth_input: adsk.core.ValueCommandInput = args.inputs.itemById('depth')
+            thread_diameter_input: adsk.core.ValueCommandInput = args.inputs.itemById('thread_diameter')
+            screw_depth_input: adsk.core.ValueCommandInput = args.inputs.itemById('screw_depth')
+            _apply_preset(
+                PRESET_BY_NAME[preset_input.selectedItem.name],
+                diameter_input,
+                depth_input,
+                thread_diameter_input,
+                screw_depth_input
+            )
 
     if changed_input.id == 'preset':
         preset = PRESET_BY_NAME.get(changed_input.selectedItem.name)
