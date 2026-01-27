@@ -2,6 +2,10 @@
 
 InsertWizard is a Fusion 360 add-in that creates precise heat-set insert holes from sketch points. Pick a preset, select points, and the add-in generates the cuts (and optional chamfers) for you.
 
+![Logo InsertWizard](./images/Logo_InsertWizard_1024.png)
+
+![](./images/InsertWizard-ZumEinschmelzenBereit.png)
+
 ## Features
 - One-click hole creation from sketch points (multi-select supported).
 - Preset library in `presets.json` (e.g., Ruthex, CNC Kitchen, 3D-Jake, ISO-style defaults).
@@ -12,6 +16,8 @@ InsertWizard is a Fusion 360 add-in that creates precise heat-set insert holes f
 - Toggle to keep the point sketch visible after running the add-in.
 - Parametric features that remain fully editable in Fusion 360.
 - Automatic naming and grouping per run.
+
+![](./images/InsertWizard-DialogFenster.png)
 
 ## Naming and grouping
 - Each extrusion created in a run is named: `<Manufacturer>_<Thread>-<N>`
