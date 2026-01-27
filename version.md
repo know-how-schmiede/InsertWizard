@@ -1,5 +1,11 @@
 # Versionen InsertWizard
 
+## Version 0.2.3 - 2026-01-27
+
+- Schrauben-Frei-Bohrung
+- Checkbox für Skizze nicht ausblenden
+- Checkbox als Sitzungs‑Toggle
+
 ## Version 0.2.2 - 2026-01-26
 
 - fix: Installation

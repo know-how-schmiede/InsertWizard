@@ -6,6 +6,7 @@ InsertWizard is a Fusion 360 add-in that creates precise heat-set insert holes f
 - One-click hole creation from sketch points (multi-select supported).
 - Preset library in `presets.json` (e.g., Ruthex, CNC Kitchen, 3D-Jake, ISO-style defaults).
 - Optional chamfer with selectable size.
+- Additional screw hole using thread diameter and screw depth.
 - Parametric features that remain fully editable in Fusion 360.
 - Automatic naming and grouping per run.
 
@@ -45,7 +46,7 @@ Presets are loaded from `presets.json` in the add-in root. You can add your own 
 2. Run InsertWizard (Solid workspace -> Create panel).
 3. Select one or more sketch points (all from the same sketch).
 4. Choose a preset (e.g., `ruthex M3`).
-5. Adjust diameter/depth if needed and select a chamfer option.
+5. Adjust diameter/depth, thread diameter/screw depth as needed, and select a chamfer option.
 6. Click **OK**.
 
 ## License

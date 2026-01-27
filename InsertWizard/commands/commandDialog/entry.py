@@ -2,6 +2,7 @@ import adsk.core
 import adsk.fusion
 import json
 import os
+import re
 from lib import fusionAddInUtils as futil
 import config
 import version
@@ -33,10 +34,46 @@ local_handlers = []
 
 PRESETS = []
 PRESET_BY_NAME = {}
+KEEP_POINT_SKETCH_VISIBLE = False
 
 PRESET_FILE = os.path.abspath(
     os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'presets.json')
 )
+
+THREAD_CLEARANCE_MM = {
+    1.6: 1.8,
+    2.0: 2.2,
+    2.5: 2.7,
+    3.0: 3.2,
+    4.0: 4.3,
+    5.0: 5.3,
+    6.0: 6.4,
+    8.0: 8.4,
+    10.0: 10.5
+}
+
+
+def _parse_thread_size(thread: str):
+    if not thread:
+        return None
+    match = re.search(r'[mM]\s*([0-9]+(?:[\\.,][0-9]+)?)', thread)
+    if not match:
+        return None
+    value = match.group(1).replace(',', '.')
+    try:
+        return float(value)
+    except:
+        return None
+
+
+def _thread_clearance_diameter(thread: str):
+    size = _parse_thread_size(thread)
+    if size is None:
+        return None
+    size_key = round(size, 2)
+    if size_key in THREAD_CLEARANCE_MM:
+        return THREAD_CLEARANCE_MM[size_key]
+    return round(size_key + 0.2, 2)
 
 
 def _preset_display_name(preset: dict) -> str:
@@ -71,16 +108,51 @@ def _load_presets() -> list:
     return presets
 
 
-def _apply_preset(preset: dict, diameter_input: adsk.core.ValueCommandInput, depth_input: adsk.core.ValueCommandInput):
+def _apply_preset(
+    preset: dict,
+    diameter_input: adsk.core.ValueCommandInput,
+    depth_input: adsk.core.ValueCommandInput,
+    thread_diameter_input: adsk.core.ValueCommandInput = None,
+    screw_depth_input: adsk.core.ValueCommandInput = None
+):
     if not preset:
         return
     diameter = preset.get('Diameter', preset.get('durchmesser', None))
     depth = preset.get('Length', preset.get('Länge', None))
+    thread = str(preset.get('Thread', preset.get('Gewinde', ''))).strip()
+
+    old_depth_value = None
+    old_screw_depth_value = None
+    if screw_depth_input:
+        try:
+            old_depth_value = depth_input.value
+            old_screw_depth_value = screw_depth_input.value
+        except:
+            pass
 
     if diameter is not None:
         diameter_input.expression = f'{diameter} mm'
     if depth is not None:
         depth_input.expression = f'{depth} mm'
+
+    if thread_diameter_input:
+        thread_diameter = preset.get('ThreadDiameter', preset.get('GewindeDurchmesser', preset.get('Gewindedurchmesser', None)))
+        if thread_diameter is None:
+            thread_diameter = _thread_clearance_diameter(thread)
+        if thread_diameter is not None:
+            thread_diameter_input.expression = f'{thread_diameter} mm'
+
+    if screw_depth_input:
+        screw_depth = preset.get(
+            'ScrewDepth',
+            preset.get('SchraubenTiefe', preset.get('Schrauben-Tiefe', preset.get('Schraubentiefe', None)))
+        )
+        if screw_depth is not None:
+            screw_depth_input.expression = f'{screw_depth} mm'
+        elif depth is not None and old_depth_value is not None and old_screw_depth_value is not None:
+            if abs(old_screw_depth_value - old_depth_value) < 1e-6:
+                screw_depth_input.expression = f'{depth} mm'
+
 
 def _preset_base_name(preset: dict) -> str:
     manufacturer = str(preset.get('Manufacturer', preset.get('Hersteller', 'Preset'))).strip()
@@ -197,10 +269,25 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
     default_depth = adsk.core.ValueInput.createByString('5 mm')
     inputs.addValueInput('depth', 'Tiefe 1', 'mm', default_depth)
 
+    # Thread diameter and screw depth inputs in mm.
+    default_thread_diameter = adsk.core.ValueInput.createByString('3.2 mm')
+    inputs.addValueInput('thread_diameter', 'Gewinde-Durchmesser', 'mm', default_thread_diameter)
+
+    default_screw_depth = adsk.core.ValueInput.createByString('5 mm')
+    inputs.addValueInput('screw_depth', 'Schrauben-Tiefe', 'mm', default_screw_depth)
+
     diameter_input: adsk.core.ValueCommandInput = inputs.itemById('diameter')
     depth_input: adsk.core.ValueCommandInput = inputs.itemById('depth')
+    thread_diameter_input: adsk.core.ValueCommandInput = inputs.itemById('thread_diameter')
+    screw_depth_input: adsk.core.ValueCommandInput = inputs.itemById('screw_depth')
     if preset_input.listItems.count > 0:
-        _apply_preset(PRESET_BY_NAME[preset_input.listItems.item(0).name], diameter_input, depth_input)
+        _apply_preset(
+            PRESET_BY_NAME[preset_input.listItems.item(0).name],
+            diameter_input,
+            depth_input,
+            thread_diameter_input,
+            screw_depth_input
+        )
 
     # Chamfer on/off toggle.
     inputs.addBoolValueInput('chamfer_enabled', 'Fase erstellen', True, '', True)
@@ -215,6 +302,15 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
     chamfer_items.add('0.2 mm', True, '')
     chamfer_items.add('0.4 mm', False, '')
     chamfer_items.add('0.6 mm', False, '')
+
+    # Keep the placement sketch visible after creating features.
+    inputs.addBoolValueInput(
+        'keep_point_sketch_visible',
+        'Punkte-Skizze sichtbar lassen',
+        True,
+        '',
+        KEEP_POINT_SKETCH_VISIBLE
+    )
 
     # Connect to the events that are needed by this command.
     futil.add_handler(args.command.execute, command_execute, local_handlers=local_handlers)
@@ -233,13 +329,20 @@ def command_execute(args: adsk.core.CommandEventArgs):
     points_input: adsk.core.SelectionCommandInput = inputs.itemById('points')
     diameter_input: adsk.core.ValueCommandInput = inputs.itemById('diameter')
     depth_input: adsk.core.ValueCommandInput = inputs.itemById('depth')
+    thread_diameter_input: adsk.core.ValueCommandInput = inputs.itemById('thread_diameter')
+    screw_depth_input: adsk.core.ValueCommandInput = inputs.itemById('screw_depth')
     preset_input: adsk.core.DropDownCommandInput = inputs.itemById('preset')
     chamfer_enabled: adsk.core.BoolValueCommandInput = inputs.itemById('chamfer_enabled')
     chamfer_input: adsk.core.DropDownCommandInput = inputs.itemById('chamfer')
+    keep_point_sketch_visible: adsk.core.BoolValueCommandInput = inputs.itemById('keep_point_sketch_visible')
 
     if points_input.selectionCount < 1:
         ui.messageBox('Bitte mindestens einen Skizzenpunkt auswählen.')
         return
+
+    global KEEP_POINT_SKETCH_VISIBLE
+    if keep_point_sketch_visible:
+        KEEP_POINT_SKETCH_VISIBLE = bool(keep_point_sketch_visible.value)
 
     design = adsk.fusion.Design.cast(app.activeProduct)
     if not design:
@@ -248,6 +351,8 @@ def command_execute(args: adsk.core.CommandEventArgs):
 
     radius = diameter_input.value / 2.0
     depth_value = abs(depth_input.value)
+    thread_radius = thread_diameter_input.value / 2.0 if thread_diameter_input else 0.0
+    screw_depth_value = abs(screw_depth_input.value) if screw_depth_input else 0.0
     chamfer_value = None
     if chamfer_enabled.value:
         chamfer_value = adsk.core.ValueInput.createByString(chamfer_input.selectedItem.name)
@@ -402,26 +507,40 @@ def command_execute(args: adsk.core.CommandEventArgs):
                     best_edge = edge
         return best_edge
 
-    for _, sketch_center, model_center in centers:
-        circle = target_sketch.sketchCurves.sketchCircles.addByCenterRadius(sketch_center, radius)
-
-        profile = None
+    def find_profile_for_circle(sketch: adsk.fusion.Sketch, circle):
         fallback_profile = None
-        for prof in target_sketch.profiles:
+        for prof in sketch.profiles:
             for loop in prof.profileLoops:
                 for curve in loop.profileCurves:
                     if curve.sketchEntity == circle:
                         if hasattr(loop, 'isOuter') and loop.isOuter:
-                            profile = prof
-                            break
+                            return prof
                         fallback_profile = prof
-                if profile:
-                    break
-            if profile:
-                break
+        return fallback_profile
 
-        if not profile:
-            profile = fallback_profile
+    screw_sketch = None
+    if thread_radius > 0 and screw_depth_value > 0:
+        try:
+            sketch_plane = plane_entity if plane_entity else base_sketch
+            screw_sketch = target_sketch.parentComponent.sketches.add(sketch_plane)
+            try:
+                screw_sketch.isVisible = False
+            except:
+                pass
+            try:
+                timeline_obj = screw_sketch.timelineObject
+                if timeline_obj:
+                    created_timeline_indices.append(timeline_obj.index)
+            except:
+                pass
+        except:
+            screw_sketch = None
+
+    for _, sketch_center, model_center in centers:
+        point_index = next_index
+        circle = target_sketch.sketchCurves.sketchCircles.addByCenterRadius(sketch_center, radius)
+
+        profile = find_profile_for_circle(target_sketch, circle)
 
         if not profile:
             futil.log('Kein Profil für Kreis gefunden.', force_console=True)
@@ -454,11 +573,11 @@ def command_execute(args: adsk.core.CommandEventArgs):
 
         if ext_feature:
             try:
-                ext_feature.name = f'{base_name}-{next_index}'
+                ext_feature.name = f'{base_name}-{point_index}'
             except:
                 pass
             if group_index is None:
-                group_index = next_index
+                group_index = point_index
             try:
                 timeline_obj = ext_feature.timelineObject
                 if timeline_obj:
@@ -466,6 +585,50 @@ def command_execute(args: adsk.core.CommandEventArgs):
             except:
                 pass
             next_index += 1
+
+        if screw_sketch and thread_radius > 0 and screw_depth_value > 0:
+            screw_center = None
+            if hasattr(screw_sketch, 'modelToSketchSpace'):
+                try:
+                    screw_center = screw_sketch.modelToSketchSpace(model_center)
+                except:
+                    screw_center = None
+            if not screw_center:
+                screw_center = adsk.core.Point3D.create(sketch_center.x, sketch_center.y, sketch_center.z)
+
+            screw_circle = screw_sketch.sketchCurves.sketchCircles.addByCenterRadius(screw_center, thread_radius)
+            screw_profile = find_profile_for_circle(screw_sketch, screw_circle)
+            if not screw_profile:
+                futil.log('Kein Profil für Schraubenkreis gefunden.', force_console=True)
+            else:
+                screw_feature = None
+                for is_positive in (True, False):
+                    screw_input = extrudes.createInput(screw_profile, adsk.fusion.FeatureOperations.CutFeatureOperation)
+                    screw_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(screw_depth_value))
+                    try:
+                        screw_input.participantBodies = target_bodies
+                    except:
+                        pass
+                    if hasattr(screw_input, 'isPositiveDirection'):
+                        screw_input.isPositiveDirection = is_positive
+                    elif not is_positive:
+                        screw_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-screw_depth_value))
+                    try:
+                        screw_feature = extrudes.add(screw_input)
+                        break
+                    except:
+                        continue
+                if screw_feature:
+                    try:
+                        screw_feature.name = f'{base_name}-{point_index}-screw'
+                    except:
+                        pass
+                    try:
+                        timeline_obj = screw_feature.timelineObject
+                        if timeline_obj:
+                            created_timeline_indices.append(timeline_obj.index)
+                    except:
+                        pass
 
 
         if chamfer_enabled.value:
@@ -510,6 +673,12 @@ def command_execute(args: adsk.core.CommandEventArgs):
         except:
             pass
 
+    if keep_point_sketch_visible and keep_point_sketch_visible.value and base_sketch:
+        try:
+            base_sketch.isVisible = True
+        except:
+            pass
+
 
 # This event handler is called when the user changes anything in the command dialog
 # allowing you to modify values of other inputs based on that change.
@@ -518,13 +687,19 @@ def command_input_changed(args: adsk.core.InputChangedEventArgs):
     if not changed_input:
         return
 
+    if changed_input.id == 'keep_point_sketch_visible':
+        global KEEP_POINT_SKETCH_VISIBLE
+        KEEP_POINT_SKETCH_VISIBLE = bool(changed_input.value)
+
     if changed_input.id == 'preset':
         preset = PRESET_BY_NAME.get(changed_input.selectedItem.name)
         if not preset:
             return
         diameter_input: adsk.core.ValueCommandInput = args.inputs.itemById('diameter')
         depth_input: adsk.core.ValueCommandInput = args.inputs.itemById('depth')
-        _apply_preset(preset, diameter_input, depth_input)
+        thread_diameter_input: adsk.core.ValueCommandInput = args.inputs.itemById('thread_diameter')
+        screw_depth_input: adsk.core.ValueCommandInput = args.inputs.itemById('screw_depth')
+        _apply_preset(preset, diameter_input, depth_input, thread_diameter_input, screw_depth_input)
 
 
 # This event handler is called when the user interacts with any of the inputs in the dialog
@@ -537,8 +712,16 @@ def command_validate_input(args: adsk.core.ValidateInputsEventArgs):
     points_input: adsk.core.SelectionCommandInput = inputs.itemById('points')
     diameter_input: adsk.core.ValueCommandInput = inputs.itemById('diameter')
     depth_input: adsk.core.ValueCommandInput = inputs.itemById('depth')
+    thread_diameter_input: adsk.core.ValueCommandInput = inputs.itemById('thread_diameter')
+    screw_depth_input: adsk.core.ValueCommandInput = inputs.itemById('screw_depth')
 
-    if points_input.selectionCount < 1 or diameter_input.value <= 0 or depth_input.value <= 0:
+    if (
+        points_input.selectionCount < 1
+        or diameter_input.value <= 0
+        or depth_input.value <= 0
+        or thread_diameter_input.value <= 0
+        or screw_depth_input.value <= 0
+    ):
         args.areInputsValid = False
         return
 
@@ -551,3 +734,5 @@ def command_destroy(args: adsk.core.CommandEventArgs):
 
     global local_handlers
     local_handlers = []
+
+
