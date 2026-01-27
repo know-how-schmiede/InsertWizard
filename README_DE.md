@@ -5,8 +5,11 @@ InsertWizard ist ein Fusion-360-Add-In, das praezise Bohrungen fuer Heat-Set Ins
 ## Features
 - Ein-Klick-Bohrungen aus Skizzenpunkten (Mehrfachauswahl moeglich).
 - Preset-Bibliothek in `presets.json` (z. B. Ruthex, CNC Kitchen, 3D-Jake, ISO-Standards).
+- Hersteller-Filter fuer Presets (Default M3 ist immer verfuegbar).
 - Optionale Fase mit waehlbarer Groesse.
 - Zusaetzliche Schraubenbohrung ueber Gewinde-Durchmesser und Schrauben-Tiefe.
+- Schrauben-Tiefe startet automatisch als `Tiefe 1 + int(Gewinde-Durchmesser)`.
+- Schalter, um die Punkte-Skizze nach dem Ausfuehren sichtbar zu lassen.
 - Parametrische Features bleiben in Fusion 360 editierbar.
 - Automatische Benennung und Gruppierung pro Ausfuehrung.
 
@@ -46,8 +49,10 @@ Die Presets werden aus `presets.json` im Add-In-Verzeichnis geladen. Eigene Pres
 2. Starte InsertWizard (Arbeitsbereich "Volumenkörper" -> Panel "Erstellen").
 3. Waehle einen oder mehrere Skizzenpunkte (alle aus derselben Skizze).
 4. Waehle ein Preset (z. B. `ruthex M3`).
-5. Passe Durchmesser/Tiefe sowie Gewinde-Durchmesser/Schrauben-Tiefe an und waehle optional eine Fase.
-6. Bestaetige mit **OK**.
+5. Waehle Hersteller und Preset (Default M3 wird immer angezeigt).
+6. Passe Durchmesser/Tiefe sowie Gewinde-Durchmesser/Schrauben-Tiefe an und waehle optional eine Fase.
+7. Optional: Punkte-Skizze sichtbar lassen.
+8. Bestaetige mit **OK**.
 
 ## Lizenz
 MIT-Lizenz - siehe `LICENSE`.
