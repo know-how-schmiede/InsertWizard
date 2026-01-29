@@ -208,3 +208,9 @@ __marimo__/
 
 # Fusion360 Installation
 !InsertWizard/InsertWizard.manifest
+
+# Fusion360 AddIn: include bundled helper libs
+!InsertWizard/lib/
+!InsertWizard/lib/**
+!InsertWizard/lib/__init__.py
+!InsertWizard/lib/fusionAddInUtils.py
