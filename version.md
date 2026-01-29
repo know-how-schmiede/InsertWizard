@@ -1,5 +1,11 @@
 # Versionen InsertWizard
 
+## Version 0.4.2 - 2026-01-28
+
+- Ergänzung presets.json um d1,d2,Wmin, LPlus
+- Anpassung Einschmelztiefe (L + LPlus)
+- Vorbereitung Beispielskizze wichtige Maße (in Repo)
+
 ## Version 0.4.1 - 2026-01-27
 
 fix: Sprachenerkennung und Sprachenumstellung

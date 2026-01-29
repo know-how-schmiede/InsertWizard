@@ -516,8 +516,14 @@ def _apply_preset(
 ):
     if not preset:
         return
-    diameter = preset.get('Diameter', preset.get('durchmesser', None))
+    diameter = preset.get('Diameter_d3', preset.get('Diameter', preset.get('durchmesser', None)))
     depth = preset.get('Length', preset.get('Länge', None))
+    length_plus = preset.get('Length_plus', preset.get('LengthPlus', None))
+    if depth is not None and length_plus is not None:
+        try:
+            depth = float(depth) + float(length_plus)
+        except:
+            pass
     thread = str(preset.get('Thread', preset.get('Gewinde', ''))).strip()
 
     old_depth_value = None
