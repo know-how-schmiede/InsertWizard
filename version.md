@@ -1,5 +1,9 @@
 # Versionen InsertWizard
 
+## Version 0.4.3 - 2026-02-05
+
+- Icons für Menu und Symbolleiste
+
 ## Version 0.4.2 - 2026-01-28
 
 - Ergänzung presets.json um d1,d2,Wmin, LPlus
