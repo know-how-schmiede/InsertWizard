@@ -8,7 +8,7 @@
 #define MyAppName "InsertWizard"
 #define MyAppPublisher "know-how-schmiede"
 #define MyAppURL "https://github.com/know-how-schmiede/InsertWizard"
-#define MyAppVersion "0.4.1"
+#define MyAppVersion "0.4.3"
 
 [Setup]
 AppId={{9C9F5D3C-9B61-4E7F-9A9A-0A1A2B6D8B1F}
