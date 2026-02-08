@@ -1,7 +1,7 @@
 ; =====================================================================
 ; InsertWizard – Fusion 360 Add-In Installer (Windows 11)
-; Repo root:        C:\Data\github\InsertWizard
-; Add-In source:    C:\Data\github\InsertWizard\InsertWizard
+; Repo root:      C:\Data\github\InsertWizard
+; Add-In source:   C:\Data\github\InsertWizard\InsertWizard
 ; Installer script: C:\Data\github\InsertWizard\installer\InsertWizard.iss
 ; =====================================================================
 
@@ -11,20 +11,33 @@
 #define MyAppVersion "0.4.3"
 
 [Setup]
+; --- Identität ---
 AppId={{9C9F5D3C-9B61-4E7F-9A9A-0A1A2B6D8B1F}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
+
+; --- Dateieigenschaften (Wichtig gegen False-Positives) ---
+VersionInfoVersion={#MyAppVersion}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription=Fusion 360 Add-In Installer für {#MyAppName}
+VersionInfoCopyright=Copyright (C) 2026 {#MyAppPublisher}
+VersionInfoProductName={#MyAppName}
+
+; --- Installationspfad ---
 DefaultDirName={userappdata}\Autodesk\Autodesk Fusion 360\API\AddIns\{#MyAppName}
 DisableProgramGroupPage=yes
 DisableDirPage=yes
+
+; --- Optik & Verhalten ---
 DisableWelcomePage=no
 DisableReadyPage=no
 OutputDir={#SourcePath}\..\dist
-OutputBaseFilename={#MyAppName}_Setup_{#MyAppVersion}
-Compression=lzma2
-SolidCompression=yes
+; Kleiner Trick: "Setup" im Namen vermeiden, falls Defender weiterhin blockt
+OutputBaseFilename={#MyAppName}_v{#MyAppVersion}_Win64
+Compression=lzma2/max
+SolidCompression=no
 PrivilegesRequired=lowest
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64
@@ -33,20 +46,14 @@ ArchitecturesInstallIn64BitMode=x64
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 
 [InstallDelete]
-; Remove old installation completely (clean install)
+; Saubere Neuinstallation sicherstellen
 Type: filesandordirs; Name: "{app}"
 
 [Files]
-; Copy the REAL Fusion Add-In folder
-; {#SourcePath} = C:\Data\github\InsertWizard\installer
-; ..\InsertWizard = C:\Data\github\InsertWizard\InsertWizard
+; Hauptquelle des Add-Ins
 Source: "{#SourcePath}\..\InsertWizard\*"; DestDir: "{app}"; \
     Flags: recursesubdirs createallsubdirs ignoreversion; \
-    Excludes: ".git\*;.vscode\*;__pycache__\*"
-
-[Run]
-Filename: "explorer.exe"; Parameters: """{app}"""; \
-    Flags: postinstall shellexec skipifsilent
+    Excludes: ".git\*;.vscode\*;__pycache__\*;*.pyc"
 
 [Code]
 function InitializeSetup(): Boolean;
