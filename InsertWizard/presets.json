@@ -239,6 +239,126 @@
       "MinWand": 2.6,
       "Length_plus": 1.0,
       "Length": 5.8
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M2x4",
+      "Diameter_d3": 3.1,
+      "Diameter_d1": 3.0,
+      "Diameter_d2": 2.0,
+      "MinWand": 1.3,
+      "Length_plus": 1.0,
+      "Length": 4.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M2x3",
+      "Diameter_d3": 3.1,
+      "Diameter_d1": 3.0,
+      "Diameter_d2": 2.0,
+      "MinWand": 1.3,
+      "Length_plus": 1.0,
+      "Length": 3.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M2x2",
+      "Diameter_d3": 3.1,
+      "Diameter_d1": 3.0,
+      "Diameter_d2": 2.0,
+      "MinWand": 1.3,
+      "Length_plus": 1.0,
+      "Length": 2.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M3x8",
+      "Diameter_d3": 4.6,
+      "Diameter_d1": 4.5,
+      "Diameter_d2": 3.0,
+      "MinWand": 1.6,
+      "Length_plus": 1.0,
+      "Length": 8.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M3x6",
+      "Diameter_d3": 4.6,
+      "Diameter_d1": 4.5,
+      "Diameter_d2": 3.0,
+      "MinWand": 1.6,
+      "Length_plus": 1.0,
+      "Length": 6.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M3x5",
+      "Diameter_d3": 4.6,
+      "Diameter_d1": 4.5,
+      "Diameter_d2": 3.0,
+      "MinWand": 1.6,
+      "Length_plus": 1.0,
+      "Length": 5.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M3x4",
+      "Diameter_d3": 4.6,
+      "Diameter_d1": 4.5,
+      "Diameter_d2": 3.0,
+      "MinWand": 1.6,
+      "Length_plus": 1.0,
+      "Length": 4.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M3x3",
+      "Diameter_d3": 4.6,
+      "Diameter_d1": 4.5,
+      "Diameter_d2": 3.0,
+      "MinWand": 1.6,
+      "Length_plus": 1.0,
+      "Length": 3.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M4x10",
+      "Diameter_d3": 5.6,
+      "Diameter_d1": 5.5,
+      "Diameter_d2": 4.0,
+      "MinWand": 2.1,
+      "Length_plus": 1.0,
+      "Length": 10.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M4x8",
+      "Diameter_d3": 5.6,
+      "Diameter_d1": 5.5,
+      "Diameter_d2": 4.0,
+      "MinWand": 2.1,
+      "Length_plus": 1.0,
+      "Length": 8.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M5x12",
+      "Diameter_d3": 7.1,
+      "Diameter_d1": 7.0,
+      "Diameter_d2": 5.0,
+      "MinWand": 2.6,
+      "Length_plus": 1.0,
+      "Length": 12.0
+    },
+    {
+      "Manufacturer": "Temu",
+      "Thread": "M5x10",
+      "Diameter_d3": 7.1,
+      "Diameter_d1": 7.0,
+      "Diameter_d2": 5.0,
+      "MinWand": 2.6,
+      "Length_plus": 1.0,
+      "Length": 10.0
     }
   ]
 }

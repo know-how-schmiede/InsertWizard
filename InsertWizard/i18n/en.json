@@ -1,5 +1,5 @@
 {
-  "cmd_description": "InsertWizard dialog",
+  "cmd_description": "InsertWizard creates precise heat-set insert holes from sketch points. Pick a preset, select points, and the add-in generates the cuts (and optional chamfers) for you.",
   "points_label": "Points",
   "points_prompt": "Select sketch points",
   "manufacturer_label": "Manufacturer",

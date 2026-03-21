@@ -1,5 +1,5 @@
 {
-  "cmd_description": "InsertWizard-Dialog",
+  "cmd_description": "InsertWizard erstellt praezise Einschmelzgewinde-Bohrungen aus Skizzenpunkten. Waehlen Sie ein Preset, markieren Sie Punkte, und das Add-in erzeugt die Schnitte (und optional Fasen) fuer Sie.",
   "points_label": "Punkte",
   "points_prompt": "Skizzenpunkte auswaehlen",
   "manufacturer_label": "Hersteller",

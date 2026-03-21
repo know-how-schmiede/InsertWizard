@@ -1,5 +1,14 @@
 # Versionen InsertWizard
 
+## Version 0.4.5 - 2026-03-21
+
+- Ergänzung presets.json um Temu-Presets
+
+## Version 0.4.4 - 2026-02-09
+
+- Anpassungen an Inno Setup Compiler bzgl. Virusmeldung von Win11 Defender (SolidCompression=no)
+- Anpassungen Tooltip-Text MenuEintrag unter Erstellen/InsertWizard
+
 ## Version 0.4.3 - 2026-02-05
 
 - Icons für Menu und Symbolleiste

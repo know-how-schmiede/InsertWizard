@@ -1,5 +1,5 @@
 {
-  "cmd_description": "Dialogo de InsertWizard",
+  "cmd_description": "InsertWizard crea agujeros precisos para insertos termicos a partir de puntos de croquis. Elija un preset, seleccione puntos y el add-in genera los cortes (y chaflanes opcionales) por usted.",
   "points_label": "Puntos",
   "points_prompt": "Seleccione puntos de croquis",
   "manufacturer_label": "Fabricante",

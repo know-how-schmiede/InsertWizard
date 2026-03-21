@@ -1,5 +1,5 @@
 {
-  "cmd_description": "Okno dialogowe InsertWizard",
+  "cmd_description": "InsertWizard tworzy precyzyjne otwory pod wkladki termiczne z punktow szkicu. Wybierz preset, zaznacz punkty, a dodatek wygeneruje wyciecia (i opcjonalne fazy).",
   "points_label": "Punkty",
   "points_prompt": "Wybierz punkty szkicu",
   "manufacturer_label": "Producent",

@@ -1,5 +1,5 @@
 {
-  "cmd_description": "Boite de dialogue InsertWizard",
+  "cmd_description": "InsertWizard cree des trous precis pour inserts thermiques a partir de points d'esquisse. Choisissez un preset, selectionnez des points, et l'add-in genere les coupes (et des chanfreins optionnels) pour vous.",
   "points_label": "Points",
   "points_prompt": "Selectionner des points d'esquisse",
   "manufacturer_label": "Fabricant",
