@@ -13,6 +13,7 @@
   "keep_point_sketch_visible_label": "Punkte-Skizze sichtbar lassen",
   "msg_select_point": "Bitte mindestens einen Skizzenpunkt auswaehlen.",
   "msg_no_design": "Kein aktives Design gefunden.",
+  "msg_creation_failed": "Bohrungen konnten nicht erstellt werden. Details stehen in der Textkonsole.",
   "msg_same_sketch": "Bitte nur Punkte aus derselben Skizze auswaehlen.",
   "log_invalid_preset_format": "Ungueltiges Preset-Format",
   "log_preset_load_failed": "Preset-Datei konnte nicht geladen werden: {error}",

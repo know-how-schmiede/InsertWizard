@@ -602,6 +602,7 @@ def _next_extrude_index(component: adsk.fusion.Component, base_name: str) -> int
 # Executed when add-in is run.
 def start():
     # Create a command Definition.
+    futil.log(f'{CMD_NAME}: loaded from {__file__}', force_console=True)
     _set_language(_resolve_language())
     cmd_def = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, tr('cmd_description'), ICON_FOLDER)
 
@@ -763,6 +764,102 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
 # This event handler is called when the user clicks the OK button in the command dialog or 
 # is immediately called after the created event not command inputs were created for the dialog.
 def command_execute(args: adsk.core.CommandEventArgs):
+    futil.log(f'{CMD_NAME}: starting hole creation (timeline fix)', force_console=True)
+    try:
+        _execute_holes(args)
+    except Exception:
+        # Let Fusion roll back the command and show the actual API failure.
+        args.executeFailed = True
+        args.executeFailedMessage = tr('msg_creation_failed')
+        futil.handle_error('InsertWizard: command_execute')
+
+
+def _get_reference_plane(sketch, design):
+    """Read face-backed references at their original timeline position."""
+    try:
+        return sketch.referencePlane
+    except RuntimeError:
+        if not sketch.isParametric:
+            raise
+
+    timeline = design.timeline
+    marker = timeline.markerPosition
+    try:
+        if not sketch.timelineObject.rollTo(True):
+            raise RuntimeError('Could not roll timeline before placement sketch')
+        reference = sketch.referencePlane
+        token = reference.entityToken if reference else None
+    finally:
+        timeline.markerPosition = marker
+
+    if token is None:
+        return None
+    # Do not reuse a BRepFace obtained in an earlier state of the model.
+    references = design.findEntityByToken(token)
+    if not references:
+        raise RuntimeError('Sketch reference plane no longer exists at the current timeline position')
+    return references[0]
+
+
+def _find_circle_edge(sketch_circle, bodies):
+    """Match the actual opening in component space, including assembly proxies."""
+    native_circle = sketch_circle.nativeObject or sketch_circle
+    opening = native_circle.worldGeometry
+    tolerance = 1e-5  # cm; geometric matching, not a manufacturing clearance.
+    for body in bodies:
+        native_body = body.nativeObject or body
+        for edge in native_body.edges:
+            geometry = edge.geometry
+            circular = adsk.core.Circle3D.cast(geometry) or adsk.core.Arc3D.cast(geometry)
+            if not circular:
+                continue
+            if abs(circular.radius - opening.radius) > tolerance:
+                continue
+            # The entrance center excludes the concentric edge at the hole bottom.
+            if circular.center.distanceTo(opening.center) <= tolerance:
+                return edge
+    return None
+
+
+def _create_cut(extrudes, profile, depth, bodies):
+    """Accept a direction only when its feature actually removes material."""
+    errors = []
+    volume_before = sum(body.volume for body in bodies)
+    for direction in (
+        adsk.fusion.ExtentDirections.PositiveExtentDirection,
+        adsk.fusion.ExtentDirections.NegativeExtentDirection
+    ):
+        feature = None
+        try:
+            cut_input = extrudes.createInput(
+                profile, adsk.fusion.FeatureOperations.CutFeatureOperation
+            )
+            extent = adsk.fusion.DistanceExtentDefinition.create(
+                adsk.core.ValueInput.createByReal(abs(depth))
+            )
+            if not cut_input.setOneSideExtent(extent, direction):
+                raise RuntimeError('setOneSideExtent returned False')
+            # Fusion expects a Python list, not an ObjectCollection.
+            cut_input.participantBodies = list(bodies)
+            feature = extrudes.add(cut_input)
+            if not feature:
+                raise RuntimeError('extrudeFeatures.add returned no feature')
+            if feature.healthState == adsk.fusion.FeatureHealthStates.ErrorFeatureHealthState:
+                raise RuntimeError(feature.errorOrWarningMessage or 'Extrusion has an error')
+            volume_after = sum(body.volume for body in bodies)
+            if volume_before - volume_after <= max(1e-9, abs(volume_before) * 1e-12):
+                raise RuntimeError('Extrusion did not remove material')
+            return feature
+        except Exception as exc:
+            # Remove an unsuccessful feature before trying the opposite direction.
+            # If cleanup fails, abort instead of stacking features on a bad result.
+            if feature and not feature.deleteMe():
+                raise RuntimeError('Could not remove unsuccessful extrusion') from exc
+            errors.append(f'{direction}: {exc}')
+    raise RuntimeError('Cut failed in both directions: ' + ' | '.join(errors))
+
+
+def _execute_holes(args: adsk.core.CommandEventArgs):
     # General logging for debug.
     futil.log(f'{CMD_NAME} Command Execute Event')
 
@@ -869,20 +966,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
         selected_preset = PRESET_BY_NAME.get(preset_input.selectedItem.name)
     if selected_preset:
         base_name = _preset_base_name(selected_preset)
-    plane_entity = None
-    plane_origin = None
-    plane_normal = None
-    if hasattr(base_sketch, 'referencePlane') and base_sketch.referencePlane:
-        plane_entity = base_sketch.referencePlane
-    elif hasattr(base_sketch, 'planarEntity') and base_sketch.planarEntity:
-        plane_entity = base_sketch.planarEntity
-
-    plane = None
-    if plane_entity and hasattr(plane_entity, 'geometry'):
-        plane = adsk.core.Plane.cast(plane_entity.geometry)
-    if plane:
-        plane_origin = plane.origin
-        plane_normal = plane.normal
+    plane_entity = _get_reference_plane(base_sketch, design)
 
     target_sketch = base_sketch
     next_index = _next_extrude_index(target_sketch.parentComponent, base_name)
@@ -906,53 +990,6 @@ def command_execute(args: adsk.core.CommandEventArgs):
     bodies = []
     for i in range(target_bodies.count):
         bodies.append(target_bodies.item(i))
-
-    def point_plane_distance(point: adsk.core.Point3D) -> float:
-        if not plane_origin or not plane_normal:
-            return 0.0
-        vec = plane_origin.vectorTo(point)
-        return abs(vec.dotProduct(plane_normal))
-
-    def find_circle_edge(center_point: adsk.core.Point3D, ext_feature: adsk.fusion.ExtrudeFeature):
-        tol = 0.02  # cm (0.2 mm)
-        best_edge = None
-        best_plane_dist = None
-
-        if ext_feature:
-            for face in ext_feature.sideFaces:
-                cyl = adsk.core.Cylinder.cast(face.geometry)
-                if not cyl:
-                    continue
-                if abs(cyl.radius - radius) > tol:
-                    continue
-                for edge in face.edges:
-                    circle = adsk.core.Circle3D.cast(edge.geometry)
-                    if not circle:
-                        continue
-                    if abs(circle.radius - radius) > tol:
-                        continue
-                    if circle.center.distanceTo(center_point) > tol:
-                        continue
-                    if plane_origin and plane_normal:
-                        if point_plane_distance(circle.center) > tol:
-                            continue
-                    return edge
-
-        for body in bodies:
-            for edge in body.edges:
-                circle = adsk.core.Circle3D.cast(edge.geometry)
-                if not circle:
-                    continue
-                if abs(circle.radius - radius) > tol:
-                    continue
-                if circle.center.distanceTo(center_point) > tol:
-                    continue
-
-                plane_dist = point_plane_distance(circle.center)
-                if best_plane_dist is None or plane_dist < best_plane_dist:
-                    best_plane_dist = plane_dist
-                    best_edge = edge
-        return best_edge
 
     def find_profile_for_circle(sketch: adsk.fusion.Sketch, circle):
         fallback_profile = None
@@ -994,29 +1031,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
             continue
 
         extrudes = target_sketch.parentComponent.features.extrudeFeatures
-        success = False
-        ext_feature = None
-        for is_positive in (True, False):
-            ext_input = extrudes.createInput(profile, adsk.fusion.FeatureOperations.CutFeatureOperation)
-            ext_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(depth_value))
-            try:
-                ext_input.participantBodies = target_bodies
-            except:
-                pass
-            if hasattr(ext_input, 'isPositiveDirection'):
-                ext_input.isPositiveDirection = is_positive
-            elif not is_positive:
-                ext_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-depth_value))
-            try:
-                ext_feature = extrudes.add(ext_input)
-                success = True
-                break
-            except:
-                continue
-
-        if not success:
-            futil.log(tr('log_no_target_cut'), force_console=True)
-            continue
+        ext_feature = _create_cut(extrudes, profile, depth_value, bodies)
 
         if ext_feature:
             try:
@@ -1048,23 +1063,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
             if not screw_profile:
                 futil.log(tr('log_no_profile_screw'), force_console=True)
             else:
-                screw_feature = None
-                for is_positive in (True, False):
-                    screw_input = extrudes.createInput(screw_profile, adsk.fusion.FeatureOperations.CutFeatureOperation)
-                    screw_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(screw_depth_value))
-                    try:
-                        screw_input.participantBodies = target_bodies
-                    except:
-                        pass
-                    if hasattr(screw_input, 'isPositiveDirection'):
-                        screw_input.isPositiveDirection = is_positive
-                    elif not is_positive:
-                        screw_input.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-screw_depth_value))
-                    try:
-                        screw_feature = extrudes.add(screw_input)
-                        break
-                    except:
-                        continue
+                screw_feature = _create_cut(extrudes, screw_profile, screw_depth_value, bodies)
                 if screw_feature:
                     try:
                         screw_feature.name = f'{base_name}-{point_index}-screw'
@@ -1079,7 +1078,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
 
 
         if chamfer_enabled.value:
-            edge = find_circle_edge(model_center, ext_feature)
+            edge = _find_circle_edge(circle, bodies)
             if edge:
                 try:
                     token = edge.entityToken

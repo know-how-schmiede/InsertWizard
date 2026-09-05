@@ -1,5 +1,7 @@
 # InsertWizard - Fusion 360 Heat-Set Insert Helper
 
+**Version 0.5.0** | English | [Deutsch](README_DE.md)
+
 InsertWizard is a Fusion 360 add-in that creates precise heat-set insert holes from sketch points. Pick a preset, select points, and the add-in generates the cuts (and optional chamfers) for you.
 
 ![Logo InsertWizard](./images/Logo_InsertWizard_1024.png)
@@ -45,7 +47,7 @@ Presets are loaded from `presets.json` in the add-in root. You can add your own 
 ## Installation
 1. Download the latest release ZIP.
 2. Extract the folder into your Fusion 360 Add-Ins directory:
-   - Windows: `%AppData%\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns`
+   - Windows: `%AppData%\Autodesk\Autodesk Fusion 360\API\AddIns`
    - macOS: `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns`
 3. Start Fusion 360.
 4. Open **Add-Ins** and start **InsertWizard**.
