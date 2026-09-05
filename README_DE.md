@@ -1,6 +1,6 @@
 # InsertWizard ? Fusion 360 Helfer f?r Einschmelzgewinde
 
-**Version 0.5.0** | [English](README.md) | Deutsch
+**Version 0.5.1** | [English](README.md) | Deutsch | [Versionshistorie](doku/version.md)
 
 InsertWizard ist ein Fusion-360-Add-In, das pr?zise Bohrungen f?r Heat-Set Inserts aus Skizzenpunkten erzeugt. Preset w?hlen, Punkte ausw?hlen, und das Add-In erstellt die Schnitte (und optional Fasen).
 
@@ -22,6 +22,8 @@ InsertWizard ist ein Fusion-360-Add-In, das pr?zise Bohrungen f?r Heat-Set Inser
 ![InsertWizard-Dialogfenster](./images/InsertWizard-DialogFenster.png)
 
 ## Benennung und Gruppierung
+
+Jede Position erh?lt eigene Skizzen mit den Namen `<Manufacturer>_<Thread>-<N>-insert-sketch` und `<Manufacturer>_<Thread>-<N>-screw-sketch`. Die Punkteskizze bleibt unver?ndert; normale Verbindungslinien beeinflussen die Bohrungsprofile nicht.
 - Jede erzeugte Extrusion wird benannt: `<Manufacturer>_<Thread>-<N>`
   - Beispiel: `ruthex_M3-1`
   - Leerzeichen im Gewinde werden entfernt (z. B. `M3 kurz` -> `M3kurz`).

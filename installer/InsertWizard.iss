@@ -1,14 +1,14 @@
 ; =====================================================================
 ; InsertWizard – Fusion 360 Add-In Installer (Windows 11)
 ; Repo root:      C:\Data\github\InsertWizard
-; Add-In source:   C:\Data\github\InsertWizard\InsertWizard
+; Add-In source:   C:\Data\github\InsertWizard\fusion_addin\InsertWizard
 ; Installer script: C:\Data\github\InsertWizard\installer\InsertWizard.iss
 ; =====================================================================
 
 #define MyAppName "InsertWizard"
 #define MyAppPublisher "know-how-schmiede"
 #define MyAppURL "https://github.com/know-how-schmiede/InsertWizard"
-#define MyAppVersion "0.5.0"
+#define MyAppVersion "0.5.1"
 
 [Setup]
 ; --- Identität ---
@@ -40,7 +40,7 @@ Compression=lzma2/max
 SolidCompression=no
 PrivilegesRequired=lowest
 WizardStyle=modern
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode=x64os
 
 [Languages]
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"
@@ -51,9 +51,9 @@ Type: filesandordirs; Name: "{app}"
 
 [Files]
 ; Hauptquelle des Add-Ins
-Source: "{#SourcePath}\..\InsertWizard\*"; DestDir: "{app}"; \
+Source: "{#SourcePath}\..\fusion_addin\InsertWizard\*"; DestDir: "{app}"; \
     Flags: recursesubdirs createallsubdirs ignoreversion; \
-    Excludes: ".git\*;.vscode\*;__pycache__\*;*.pyc"
+    Excludes: ".git\*,.vscode\*,__pycache__\*,*.pyc"
 
 [Code]
 function InitializeSetup(): Boolean;

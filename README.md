@@ -1,6 +1,6 @@
 # InsertWizard - Fusion 360 Heat-Set Insert Helper
 
-**Version 0.5.0** | English | [Deutsch](README_DE.md)
+**Version 0.5.1** | English | [Deutsch](README_DE.md) | [Changelog](doku/version.md)
 
 InsertWizard is a Fusion 360 add-in that creates precise heat-set insert holes from sketch points. Pick a preset, select points, and the add-in generates the cuts (and optional chamfers) for you.
 
@@ -22,6 +22,8 @@ InsertWizard is a Fusion 360 add-in that creates precise heat-set insert holes f
 ![](./images/InsertWizard-DialogFenster.png)
 
 ## Naming and grouping
+
+Each position gets separate sketches named `<Manufacturer>_<Thread>-<N>-insert-sketch` and `<Manufacturer>_<Thread>-<N>-screw-sketch`. The placement sketch remains unchanged; ordinary connecting lines do not affect the hole profiles.
 - Each extrusion created in a run is named: `<Manufacturer>_<Thread>-<N>`
   - Example: `ruthex_M3-1`
   - Whitespace in the thread name is removed (e.g., `M3 kurz` -> `M3kurz`).

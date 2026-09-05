@@ -602,7 +602,7 @@ def _next_extrude_index(component: adsk.fusion.Component, base_name: str) -> int
 # Executed when add-in is run.
 def start():
     # Create a command Definition.
-    futil.log(f'{CMD_NAME}: loaded from {__file__}', force_console=True)
+    futil.log(f'{CMD_NAME}: loaded from {__file__}')
     _set_language(_resolve_language())
     cmd_def = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, tr('cmd_description'), ICON_FOLDER)
 
@@ -764,7 +764,7 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
 # This event handler is called when the user clicks the OK button in the command dialog or 
 # is immediately called after the created event not command inputs were created for the dialog.
 def command_execute(args: adsk.core.CommandEventArgs):
-    futil.log(f'{CMD_NAME}: starting hole creation (timeline fix)', force_console=True)
+    futil.log(f'{CMD_NAME}: starting hole creation')
     try:
         _execute_holes(args)
     except Exception:
@@ -799,6 +799,18 @@ def _get_reference_plane(sketch, design):
     if not references:
         raise RuntimeError('Sketch reference plane no longer exists at the current timeline position')
     return references[0]
+
+
+def _create_hole_sketch(component, plane, model_center, radius, name):
+    """Keep each circular cut profile isolated from placement and face edges."""
+    if plane is None:
+        raise RuntimeError('Placement sketch has no usable reference plane')
+    sketch = component.sketches.addWithoutEdges(plane)
+    sketch.name = name
+    center = sketch.modelToSketchSpace(model_center)
+    circle = sketch.sketchCurves.sketchCircles.addByCenterRadius(center, radius)
+    sketch.isVisible = False
+    return sketch, circle
 
 
 def _find_circle_edge(sketch_circle, bodies):
@@ -894,12 +906,12 @@ def _execute_holes(args: adsk.core.CommandEventArgs):
     chamfer_value = None
     if chamfer_enabled.value:
         chamfer_value = adsk.core.ValueInput.createByString(chamfer_input.selectedItem.name)
-        futil.log(tr('log_chamfer', value=chamfer_input.selectedItem.name), force_console=True)
+        futil.log(tr('log_chamfer', value=chamfer_input.selectedItem.name))
     else:
-        futil.log(tr('log_chamfer_disabled'), force_console=True)
+        futil.log(tr('log_chamfer_disabled'))
 
     selection_count = points_input.selectionCount
-    futil.log(tr('log_selected_points', count=selection_count), force_console=True)
+    futil.log(tr('log_selected_points', count=selection_count))
 
     centers = []
     base_sketch = None
@@ -911,6 +923,8 @@ def _execute_holes(args: adsk.core.CommandEventArgs):
             futil.log(tr('log_invalid_selection_index', index=i), force_console=True)
             break
         entity = selection.entity
+        if entity:
+            entity = entity.nativeObject or entity
         if not entity:
             continue
         if not hasattr(entity, 'parentSketch') or not hasattr(entity, 'geometry'):
@@ -949,7 +963,7 @@ def _execute_holes(args: adsk.core.CommandEventArgs):
                 y=sketch_center.y,
                 z=sketch_center.z
             ),
-            force_console=True
+            force_console=False
         )
 
     if mismatched_sketch:
@@ -1002,29 +1016,29 @@ def _execute_holes(args: adsk.core.CommandEventArgs):
                         fallback_profile = prof
         return fallback_profile
 
-    screw_sketch = None
-    if thread_radius > 0 and screw_depth_value > 0:
-        try:
-            sketch_plane = plane_entity if plane_entity else base_sketch
-            screw_sketch = target_sketch.parentComponent.sketches.add(sketch_plane)
-            try:
-                screw_sketch.isVisible = False
-            except:
-                pass
-            try:
-                timeline_obj = screw_sketch.timelineObject
-                if timeline_obj:
-                    created_timeline_indices.append(timeline_obj.index)
-            except:
-                pass
-        except:
-            screw_sketch = None
+    # Create all sketches before cutting changes the supporting face topology.
+    hole_sketches = []
+    for offset, (_, sketch_center, model_center) in enumerate(centers):
+        point_index = next_index + offset
+        hole_name = f'{base_name}-{point_index}'
+        insert_sketch, circle = _create_hole_sketch(
+            target_sketch.parentComponent, plane_entity, model_center, radius,
+            f'{hole_name}-insert-sketch'
+        )
+        screw_sketch = None
+        screw_circle = None
+        if thread_radius > 0 and screw_depth_value > 0:
+            screw_sketch, screw_circle = _create_hole_sketch(
+                target_sketch.parentComponent, plane_entity, model_center, thread_radius,
+                f'{hole_name}-screw-sketch'
+            )
+        for new_sketch in (insert_sketch, screw_sketch):
+            if new_sketch and new_sketch.timelineObject:
+                created_timeline_indices.append(new_sketch.timelineObject.index)
+        hole_sketches.append((point_index, insert_sketch, circle, screw_sketch, screw_circle))
 
-    for _, sketch_center, model_center in centers:
-        point_index = next_index
-        circle = target_sketch.sketchCurves.sketchCircles.addByCenterRadius(sketch_center, radius)
-
-        profile = find_profile_for_circle(target_sketch, circle)
+    for point_index, insert_sketch, circle, screw_sketch, screw_circle in hole_sketches:
+        profile = find_profile_for_circle(insert_sketch, circle)
 
         if not profile:
             futil.log(tr('log_no_profile_circle'), force_console=True)
@@ -1049,16 +1063,6 @@ def _execute_holes(args: adsk.core.CommandEventArgs):
             next_index += 1
 
         if screw_sketch and thread_radius > 0 and screw_depth_value > 0:
-            screw_center = None
-            if hasattr(screw_sketch, 'modelToSketchSpace'):
-                try:
-                    screw_center = screw_sketch.modelToSketchSpace(model_center)
-                except:
-                    screw_center = None
-            if not screw_center:
-                screw_center = adsk.core.Point3D.create(sketch_center.x, sketch_center.y, sketch_center.z)
-
-            screw_circle = screw_sketch.sketchCurves.sketchCircles.addByCenterRadius(screw_center, thread_radius)
             screw_profile = find_profile_for_circle(screw_sketch, screw_circle)
             if not screw_profile:
                 futil.log(tr('log_no_profile_screw'), force_console=True)
@@ -1084,7 +1088,7 @@ def _execute_holes(args: adsk.core.CommandEventArgs):
                     token = edge.entityToken
                 except:
                     token = 'n/a'
-                futil.log(tr('log_chamfer_edge', token=token), force_console=True)
+                futil.log(tr('log_chamfer_edge', token=token))
                 chamfer_feats = target_sketch.parentComponent.features.chamferFeatures
                 single = adsk.core.ObjectCollection.create()
                 single.add(edge)

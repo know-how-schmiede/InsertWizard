@@ -181,6 +181,34 @@ class CutTests(unittest.TestCase):
         self.assertIs(self.ns['_get_reference_plane'](NS(referencePlane=plane), None), plane)
 
 
+class HoleSketchTests(unittest.TestCase):
+    def test_four_positions_have_independent_profiles_without_projected_edges(self):
+        create = load_functions(
+            'fusion_addin/InsertWizard/commands/commandDialog/entry.py',
+            {'_create_hole_sketch'}, {}
+        )['_create_hole_sketch']
+        sketches = []
+        def add(plane):
+            sketch = Mock()
+            sketches.append(sketch)
+            return sketch
+        component = Mock()
+        component.sketches.addWithoutEdges.side_effect = add
+        plane = object()
+        for index, position in enumerate([(0, 0), (1, 0), (1, 1), (0, 1)], 1):
+            for kind, radius in [('insert', 0.2), ('screw', 0.16)]:
+                name = f'ruthex_M3-{index}-{kind}-sketch'
+                sketch, circle = create(component, plane, position, radius, name)
+                self.assertEqual(sketch.name, name)
+                self.assertFalse(sketch.isVisible)
+                sketch.modelToSketchSpace.assert_called_once_with(position)
+                sketch.sketchCurves.sketchCircles.addByCenterRadius.assert_called_once_with(
+                    sketch.modelToSketchSpace.return_value, radius)
+        self.assertEqual(len(sketches), 8)
+        self.assertEqual(len({sketch.name for sketch in sketches}), 8)
+        component.sketches.add.assert_not_called()
+
+
 class ChamferEdgeTests(unittest.TestCase):
     def setUp(self):
         import math

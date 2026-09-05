@@ -1,5 +1,21 @@
 # Versionen InsertWizard
 
+## Version 0.5.1 - 2026-09-06
+
+- **Erforderlich für das Fusion-Update September 2026:** Durch Änderungen am API-Modell ist InsertWizard 0.4.5 mit dieser Fusion-Version nicht mehr lauffähig. Bitte auf InsertWizard 0.5.1 aktualisieren.
+- Eigene, eindeutig benannte Skizzen für jede Einschmelz- und Schraubenbohrung.
+- Punkteskizze bleibt unverändert; Verbindungslinien und Flächenkanten beeinflussen die Kreisprofile nicht.
+- Textkonsolen-Ausgabe reduziert: Diagnosedetails nur im Debug-Modus; Warnungen und Fehler bleiben sichtbar.
+
+## Version 0.5.0 - 2026-09-05
+
+- Zugriff auf die Trägerfläche der Punkteskizze korrigiert: Zeitleiste temporär zurücksetzen und anschließend wiederherstellen.
+- Schnitterzeugung auf die aktuelle Extrusions-API umgestellt und Zielkörper als Python-Liste übergeben.
+- Extrusionsrichtung anhand von Feature-Status und tatsächlichem Materialabtrag geprüft; erfolglose Features vor dem Versuch der Gegenrichtung entfernt.
+- Fasen-Kantensuche auf Komponentenkoordinaten vereinheitlicht und um kreisbogenförmige Teilkanten erweitert.
+- Fehlerdetails in der Textkonsole sichtbar gemacht.
+- Versionsangaben in Manifest und Installer sowie englische und deutsche README aktualisiert und READMEs gegenseitig verlinkt.
+
 ## Version 0.4.5 - 2026-03-21
 
 - Ergänzung presets.json um Temu-Presets
